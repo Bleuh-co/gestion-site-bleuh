@@ -82,14 +82,24 @@ export async function bleuhFetch(path: string, options: BleuhFetchOptions = {}):
   }
 }
 
-/** Relaye une réponse JSON (ou texte non-JSON) de BleuhAPI en NextResponse, code HTTP préservé. */
+/**
+ * Relaye une réponse de BleuhAPI en NextResponse JSON, code HTTP préservé.
+ * Si le corps upstream n'est pas du JSON (ex. page HTML 404 quand
+ * BLEUH_ADMIN_TOKEN est absent/mal configuré), ne relaye JAMAIS ce corps
+ * brut au client — on le remplace par un message propre + le code HTTP.
+ */
 export async function relayJson(upstream: Response): Promise<NextResponse> {
   const text = await upstream.text();
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    data = { success: upstream.ok, message: text.slice(0, 2000) };
+    data = {
+      success: false,
+      message: upstream.ok
+        ? `Réponse inattendue (non-JSON) de BleuhAPI — HTTP ${upstream.status}.`
+        : `Service indisponible ou non configuré (BleuhAPI admin) — HTTP ${upstream.status}.`,
+    };
   }
   return NextResponse.json(data, { status: upstream.status });
 }

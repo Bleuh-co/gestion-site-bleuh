@@ -28,9 +28,15 @@ export async function outilsFetch(path: string, options: RequestInit = {}): Prom
   const ct = res.headers.get("content-type") || "";
   let data: any;
   if (ct.includes("application/json")) {
-    data = await res.json().catch(() => ({}));
-  } else {
-    data = { message: (await res.text()).slice(0, 500) };
+    data = await res.json().catch(() => null);
+  }
+  // Réponse non-JSON (ou parsing JSON échoué) : ne jamais afficher le corps
+  // brut (ex. page HTML 404) — message propre + code HTTP à la place.
+  if (!data || typeof data !== "object") {
+    data = {
+      success: false,
+      message: `Service indisponible ou non configuré (BleuhAPI admin) — HTTP ${res.status}.`,
+    };
   }
   if (!res.ok || data?.success === false) {
     throw new Error(data?.message || data?.error || `Erreur ${res.status}`);
