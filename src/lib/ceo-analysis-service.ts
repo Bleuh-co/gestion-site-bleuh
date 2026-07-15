@@ -30,13 +30,18 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
 // même logique de défaut que lib/limits.js (surestimer plutôt que sous-estimer).
 const DEFAULT_PRICING = MODEL_PRICING["claude-sonnet-4-6"];
 
+// Taux indicatif, ajustable — pas de conversion live (pas de dépendance
+// externe pour un module de reporting interne). À revoir périodiquement.
+const USD_TO_CAD = 1.38;
+
 function pricingFor(model: string | null | undefined) {
   return (model && MODEL_PRICING[model]) || DEFAULT_PRICING;
 }
 
-function estimateCostUsd(inputTokens: number, outputTokens: number, model: string | null | undefined) {
+function estimateCostCad(inputTokens: number, outputTokens: number, model: string | null | undefined) {
   const pricing = pricingFor(model);
-  return (inputTokens / 1e6) * pricing.in + (outputTokens / 1e6) * pricing.out;
+  const usd = (inputTokens / 1e6) * pricing.in + (outputTokens / 1e6) * pricing.out;
+  return usd * USD_TO_CAD;
 }
 
 /** Format YYYY-MM-DD (UTC), même format que dayKey() de bleuh-chat/lib/limits.js. */
@@ -62,7 +67,7 @@ export interface DailyPoint {
   requests: number;
   inputTokens: number;
   outputTokens: number;
-  costUsd: number;
+  costCad: number;
 }
 
 export interface CeoKpis {
@@ -74,7 +79,7 @@ export interface CeoKpis {
     byDay: DailyPoint[];
   };
   cost: {
-    totalUsd: number;
+    totalCad: number;
     label: string; // "estimé (modèle courant)" — cf. limite honnête du brief §1.2
   };
   sessions: {
@@ -84,8 +89,21 @@ export interface CeoKpis {
   };
 }
 
+export interface Ga4TrafficOk {
+  status: "ok";
+  sessions: number;
+  activeUsers: number;
+  screenPageViews: number;
+}
+
+export interface Ga4TrafficNonInstrumente {
+  status: "non_instrumente";
+}
+
+export type Ga4Traffic = Ga4TrafficOk | Ga4TrafficNonInstrumente;
+
 export interface CeoSources {
-  ga4: "non_instrumente";
+  ga4: Ga4Traffic;
   ventes: "non_instrumente";
 }
 
@@ -134,11 +152,11 @@ async function getInteractionsAndCost(dates: string[], model: string): Promise<D
           requests,
           inputTokens,
           outputTokens,
-          costUsd: estimateCostUsd(inputTokens, outputTokens, model),
+          costCad: estimateCostCad(inputTokens, outputTokens, model),
         };
       } catch (e) {
         console.warn(`[ceo-analysis] lecture chat_usage/day_${date} échouée :`, e);
-        return { date, requests: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
+        return { date, requests: 0, inputTokens: 0, outputTokens: 0, costCad: 0 };
       }
     })
   );
@@ -180,7 +198,7 @@ export async function buildCeoKpis(period: CeoPeriod): Promise<CeoKpis> {
   ]);
 
   const totalRequests = byDay.reduce((sum, d) => sum + d.requests, 0);
-  const totalCostUsd = byDay.reduce((sum, d) => sum + d.costUsd, 0);
+  const totalCostCad = byDay.reduce((sum, d) => sum + d.costCad, 0);
   const escalationRate = sessionsRaw.total > 0 ? sessionsRaw.escalated / sessionsRaw.total : null;
 
   return {
@@ -188,7 +206,7 @@ export async function buildCeoKpis(period: CeoPeriod): Promise<CeoKpis> {
     days,
     model,
     interactions: { total: totalRequests, byDay },
-    cost: { totalUsd: totalCostUsd, label: "estimé (modèle courant)" },
+    cost: { totalCad: totalCostCad, label: "estimé (modèle courant)" },
     sessions: {
       total: sessionsRaw.total,
       escalated: sessionsRaw.escalated,
@@ -221,7 +239,7 @@ async function callAiSummary(kpis: CeoKpis): Promise<string | null> {
     const userPayload = {
       periode: kpis.period,
       volumeInteractions: kpis.interactions.total,
-      coutIaEstimeUsd: Number(kpis.cost.totalUsd.toFixed(2)),
+      coutIaEstimeCad: Number(kpis.cost.totalCad.toFixed(2)),
       modeleCourant: kpis.model,
       nombreSessions: kpis.sessions.total,
       sessionsEscaladees: kpis.sessions.escalated,
@@ -256,15 +274,140 @@ async function callAiSummary(kpis: CeoKpis): Promise<string | null> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Lecture GA4 (trafic/clics SiteBleuh) — via la GA4 Data API (runReport).
+// Auth par ADC (le SA du service). Dégradation propre et systématique :
+// pas de GA4_PROPERTY_ID configurée OU appel qui échoue (SA sans accès à
+// la propriété GA4, etc.) → { status: 'non_instrumente' }, jamais de crash.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Trafic GA4 (sessions, utilisateurs actifs, pages vues) sur les N derniers
+ * jours, pour la propriété GA4 de SiteBleuh (env GA4_PROPERTY_ID, numérique).
+ */
+export async function getGa4Traffic(days: number): Promise<Ga4Traffic> {
+  const propertyId = process.env.GA4_PROPERTY_ID;
+  if (!propertyId || !propertyId.trim()) {
+    return { status: "non_instrumente" };
+  }
+
+  try {
+    const { BetaAnalyticsDataClient } = await import("@google-analytics/data");
+    const client = new BetaAnalyticsDataClient();
+
+    const [response] = await client.runReport({
+      property: `properties/${propertyId.trim()}`,
+      dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
+      metrics: [{ name: "sessions" }, { name: "activeUsers" }, { name: "screenPageViews" }],
+    });
+
+    const values = response.rows?.[0]?.metricValues;
+    const sessions = Number(values?.[0]?.value) || 0;
+    const activeUsers = Number(values?.[1]?.value) || 0;
+    const screenPageViews = Number(values?.[2]?.value) || 0;
+
+    return { status: "ok", sessions, activeUsers, screenPageViews };
+  } catch (e) {
+    console.warn("[ceo-analysis] lecture GA4 échouée (SA sans accès à la propriété ?) :", e);
+    return { status: "non_instrumente" };
+  }
+}
+
 export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const aiSummary = await callAiSummary(kpis);
+  const [aiSummary, ga4] = await Promise.all([callAiSummary(kpis), getGa4Traffic(kpis.days)]);
 
   return {
     generatedAt: new Date().toISOString(),
     period,
     kpis,
-    sources: { ga4: "non_instrumente", ventes: "non_instrumente" },
+    sources: { ga4, ventes: "non_instrumente" },
     aiSummary,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Analyse approfondie (déclenchée manuellement, coûte des tokens) —
+// mêmes KPIs réels + prompt plus riche à claude-sonnet-4-6, 5-8 insights
+// stratégiques + recommandations concrètes. Reste factuel/conforme (pas
+// d'allégation santé) : mêmes garde-fous que AI_SYSTEM_PROMPT, renforcés.
+// ─────────────────────────────────────────────────────────────
+
+const DEEP_ANALYSIS_SYSTEM_PROMPT = `Tu es un analyste senior qui produit une analyse stratégique approfondie des indicateurs internes d'un chatbot support (Bleuh) pour un CEO.
+Règles strictes :
+- Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre, aucune donnée externe (pas de trafic, pas de ventes : ces sources ne sont pas connectées à ce module sauf si explicitement fournies).
+- N'énonce JAMAIS d'allégation de santé (produits liés au cannabis/chanvre) — reste strictement sur l'usage du service de support et les indicateurs opérationnels.
+- Produis entre 5 et 8 insights stratégiques, chacun avec une recommandation concrète et actionnable.
+- Qualifie explicitement d'estimation toute observation qui n'est pas un chiffre compté directement (ex. coût IA, tendances).
+- Réponds en français, format : une puce "- " par insight, chaque puce contenant l'observation suivie de « → Recommandation : ... ». Sans préambule ni conclusion.`;
+
+export interface DeepAnalysisResult {
+  generatedAt: string;
+  period: CeoPeriod;
+  model: string;
+  kpis: CeoKpis;
+  insights: string | null;
+}
+
+/**
+ * Analyse approfondie sur demande (bouton « Lancer une vraie analyse »).
+ * Recalcule les KPIs réels (fenêtre à jour) puis interroge claude-sonnet-4-6
+ * avec un prompt plus riche. Sans clé Anthropic → insights null (pas de crash).
+ */
+export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysisResult> {
+  const kpis = await buildCeoKpis(period);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  let insights: string | null = null;
+  if (apiKey) {
+    try {
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      const client = new Anthropic({ apiKey });
+
+      const userPayload = {
+        periode: kpis.period,
+        jours: kpis.days,
+        volumeInteractions: kpis.interactions.total,
+        interactionsParJour: kpis.interactions.byDay.map((d) => ({ date: d.date, requetes: d.requests })),
+        coutIaEstimeCad: Number(kpis.cost.totalCad.toFixed(2)),
+        modeleCourant: kpis.model,
+        nombreSessions: kpis.sessions.total,
+        sessionsEscaladees: kpis.sessions.escalated,
+        tauxEscalade:
+          kpis.sessions.escalationRate === null
+            ? "n/a (aucune session sur la période)"
+            : `${(kpis.sessions.escalationRate * 100).toFixed(1)}%`,
+      };
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1536,
+        system: DEEP_ANALYSIS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Voici les KPIs du bot Bleuh sur la période ${kpis.period} (analyse approfondie demandée manuellement) :\n${JSON.stringify(userPayload, null, 2)}`,
+          },
+        ],
+      });
+
+      insights =
+        response.content
+          .filter((block): block is { type: "text"; text: string } => block.type === "text")
+          .map((block) => block.text)
+          .join("\n")
+          .trim() || null;
+    } catch (e) {
+      console.warn("[ceo-analysis] analyse approfondie Anthropic échouée :", e);
+      insights = null;
+    }
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    period,
+    model: "claude-sonnet-4-6",
+    kpis,
+    insights,
   };
 }

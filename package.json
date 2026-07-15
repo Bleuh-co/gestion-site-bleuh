@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@bleuh-co/gandalf-sdk-next": "^0.2.3",
+    "@google-analytics/data": "^6.1.0",
     "clsx": "^2.1.1",
     "firebase": "^11.1.0",
     "firebase-admin": "^13.8.0",

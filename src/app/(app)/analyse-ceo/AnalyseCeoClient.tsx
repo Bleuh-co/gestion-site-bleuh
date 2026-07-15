@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Role } from "@/lib/types";
 
 type Period = "7d" | "30d" | "90d";
 
@@ -9,7 +10,7 @@ interface DailyPoint {
   requests: number;
   inputTokens: number;
   outputTokens: number;
-  costUsd: number;
+  costCad: number;
 }
 
 interface CeoKpis {
@@ -17,22 +18,38 @@ interface CeoKpis {
   days: number;
   model: string;
   interactions: { total: number; byDay: DailyPoint[] };
-  cost: { totalUsd: number; label: string };
+  cost: { totalCad: number; label: string };
   sessions: { total: number; escalated: number; escalationRate: number | null };
 }
+
+type Ga4Traffic =
+  | { status: "ok"; sessions: number; activeUsers: number; screenPageViews: number }
+  | { status: "non_instrumente" };
 
 interface CeoAnalysisResult {
   generatedAt: string;
   period: Period;
   kpis: CeoKpis;
-  sources: { ga4: "non_instrumente"; ventes: "non_instrumente" };
+  sources: { ga4: Ga4Traffic; ventes: "non_instrumente" };
   aiSummary: string | null;
+}
+
+interface DeepAnalysisResult {
+  generatedAt: string;
+  period: Period;
+  model: string;
+  kpis: CeoKpis;
+  insights: string | null;
+}
+
+interface AnalyseCeoClientProps {
+  role: Role;
 }
 
 const PERIOD_LABELS: Record<Period, string> = { "7d": "7 jours", "30d": "30 jours", "90d": "90 jours" };
 
 const nombreFmt = new Intl.NumberFormat("fr-CA");
-const usdFmt = new Intl.NumberFormat("fr-CA", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+const cadFmt = new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 2 });
 const pctFmt = new Intl.NumberFormat("fr-CA", { style: "percent", maximumFractionDigits: 1 });
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -45,11 +62,24 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
-export function AnalyseCeoClient() {
+export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
+  const canRunDeepAnalysis = role === "gestionnaire" || role === "admin" || role === "superadmin";
+
   const [period, setPeriod] = useState<Period>("7d");
   const [data, setData] = useState<CeoAnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [deepResult, setDeepResult] = useState<DeepAnalysisResult | null>(null);
+  const [deepLoading, setDeepLoading] = useState(false);
+  const [deepError, setDeepError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Réinitialise l'analyse approfondie affichée quand la période change —
+    // elle correspondait à l'ancienne fenêtre.
+    setDeepResult(null);
+    setDeepError(null);
+  }, [period]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +106,24 @@ export function AnalyseCeoClient() {
       cancelled = true;
     };
   }, [period]);
+
+  async function handleRunDeepAnalysis() {
+    setDeepLoading(true);
+    setDeepError(null);
+    try {
+      const res = await fetch(`/api/analyse-ceo/run?period=${period}`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Erreur ${res.status}`);
+      }
+      const json: DeepAnalysisResult = await res.json();
+      setDeepResult(json);
+    } catch (e) {
+      setDeepError(e instanceof Error ? e.message : "Impossible de lancer l'analyse approfondie.");
+    } finally {
+      setDeepLoading(false);
+    }
+  }
 
   const kpis = data?.kpis;
   const escalationRateText =
@@ -119,7 +167,7 @@ export function AnalyseCeoClient() {
         />
         <KpiCard
           label="Coût IA estimé"
-          value={loading || !kpis ? "…" : usdFmt.format(kpis.cost.totalUsd)}
+          value={loading || !kpis ? "…" : cadFmt.format(kpis.cost.totalCad)}
           sub={kpis ? `${kpis.cost.label} — modèle ${kpis.model}` : undefined}
         />
         <KpiCard
@@ -147,6 +195,41 @@ export function AnalyseCeoClient() {
         )}
       </section>
 
+      {canRunDeepAnalysis && (
+        <section className="card p-4 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+            <div>
+              <h2 className="text-lg font-semibold">Analyse approfondie</h2>
+              <p className="text-xs text-chanv-terre/60">
+                Insights stratégiques + recommandations (modèle claude-sonnet-4-6) — consomme des tokens, à lancer
+                à la demande.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleRunDeepAnalysis}
+              disabled={deepLoading}
+            >
+              {deepLoading ? "Analyse en cours…" : "Lancer une vraie analyse"}
+            </button>
+          </div>
+          {deepError && (
+            <div className="card p-3 mt-2 border-l-4" style={{ borderLeftColor: "var(--color-danger)" }}>
+              <p className="text-sm">{deepError}</p>
+            </div>
+          )}
+          {deepResult?.insights && (
+            <div className="text-sm whitespace-pre-line leading-relaxed mt-3">{deepResult.insights}</div>
+          )}
+          {deepResult && !deepResult.insights && !deepError && (
+            <p className="text-sm text-chanv-terre/70 mt-3">
+              Analyse approfondie indisponible : ANTHROPIC_API_KEY non configurée, ou la génération a échoué.
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="card p-4">
         <h2 className="text-lg font-semibold mb-1">Sources à instrumenter</h2>
         <p className="text-sm text-chanv-terre/70 mb-3">
@@ -156,11 +239,21 @@ export function AnalyseCeoClient() {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
               <p className="font-semibold text-sm">Trafic / clics (GA4)</p>
-              <p className="text-xs text-chanv-terre/60">
-                Google Analytics 4 n&apos;est pas encore câblé sur SiteBleuh.
-              </p>
+              {data?.sources.ga4.status === "ok" ? (
+                <p className="text-xs text-chanv-terre/60">
+                  {nombreFmt.format(data.sources.ga4.sessions)} sessions ·{" "}
+                  {nombreFmt.format(data.sources.ga4.activeUsers)} utilisateurs actifs ·{" "}
+                  {nombreFmt.format(data.sources.ga4.screenPageViews)} pages vues
+                </p>
+              ) : (
+                <p className="text-xs text-chanv-terre/60">
+                  Google Analytics 4 n&apos;est pas encore câblé sur SiteBleuh.
+                </p>
+              )}
             </div>
-            <span className="badge-neutral">Non instrumenté</span>
+            <span className="badge-neutral">
+              {data?.sources.ga4.status === "ok" ? "Live" : "Non instrumenté"}
+            </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>

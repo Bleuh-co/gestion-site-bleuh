@@ -17,5 +17,5 @@ export default async function AnalyseCeoPage() {
     );
   }
 
-  return <AnalyseCeoClient />;
+  return <AnalyseCeoClient role={session.role} />;
 }
