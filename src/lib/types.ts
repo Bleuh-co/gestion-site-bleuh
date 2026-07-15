@@ -149,3 +149,16 @@ export interface ApiError {
   error: string;
   code?: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Journaux d'audit
+// ─────────────────────────────────────────────────────────────
+export interface AuditEntry {
+  id: string;
+  ts: number;            // epoch ms
+  actorEmail: string;
+  actorRole: Role;
+  action: string;        // ex. "product.create"
+  target: string;        // ex. "products/abc123"
+  details?: Record<string, unknown>;
+}
