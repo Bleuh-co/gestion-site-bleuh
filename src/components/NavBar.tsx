@@ -9,6 +9,10 @@ import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
+function isActive(pathname: string | null, href: string): boolean {
+  return pathname === href || !!pathname?.startsWith(href + "/");
+}
+
 export function NavBar() {
   const { embedded } = useGandalf();
   const { session } = useAuth();
@@ -32,11 +36,6 @@ export function NavBar() {
     { href: "/audit", label: t("nav.audit"), show: isAdmin },
   ];
 
-  const isActive = (href: string) =>
-    href === "/"
-      ? pathname === "/"
-      : pathname === href || pathname?.startsWith(href + "/");
-
   if (embedded) {
     // Contrat d'embed Gandalf — nav interne d'embed (modèle Gestion-Parc-It /
     // XeroFacture) : barre claire sticky sur fond parchemin, pastilles blanches
@@ -51,7 +50,7 @@ export function NavBar() {
               href={l.href}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[12.5px] font-semibold transition-colors",
-                isActive(l.href)
+                isActive(pathname, l.href)
                   ? "border-[#A8863F] bg-[#A8863F] font-bold text-white"
                   : "border-black/10 bg-white text-black/60 hover:border-[#A8863F]/40 hover:text-[#282828]",
               )}
@@ -66,7 +65,7 @@ export function NavBar() {
 
   return (
     <header className="chanv-header">
-      <div className="mx-auto max-w-5xl flex items-center gap-6 flex-nowrap relative flex-col md:flex-row text-center md:text-left">
+      <div className="mx-auto max-w-6xl flex items-center gap-6 flex-wrap relative flex-col md:flex-row text-center md:text-left">
         <a
           href={process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com"}
           className="chanv-logo-wrapper flex items-center"
@@ -88,18 +87,18 @@ export function NavBar() {
           </p>
         </div>
 
-        <nav className="hidden md:flex items-center gap-1 ml-0 md:ml-4">
+        <nav className="hidden md:flex items-center gap-1 ml-2">
           {links
             .filter((l) => l.show)
             .map((l) => (
-              <Link key={l.href} href={l.href} className={cn("chanv-nav-link", isActive(l.href) && "active")}>
+              <Link key={l.href} href={l.href} className={cn("chanv-nav-link", isActive(pathname, l.href) && "active")}>
                 {l.icon}
                 <span className="hidden sm:inline">{l.label}</span>
               </Link>
             ))}
         </nav>
 
-        <div className="flex items-center gap-3 md:ml-auto absolute top-0 right-0 md:relative md:top-auto md:right-auto">
+        <div className="flex items-center gap-3 md:ml-auto flex-shrink-0 absolute top-0 right-0 md:relative md:top-auto md:right-auto">
           <div className="text-right hidden sm:block">
             <div className="text-sm font-semibold text-white whitespace-nowrap">
               {session.displayName || session.email}

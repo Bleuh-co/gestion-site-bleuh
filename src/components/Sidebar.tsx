@@ -2,6 +2,8 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthProvider";
+import { useGandalf } from "@bleuh-co/gandalf-sdk-next/client";
+import { useT } from "@/lib/i18n";
 import { ROLE_LABELS } from "@/lib/types";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
@@ -13,7 +15,9 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
  * with user info + app-specific navigation links.
  */
 export function Sidebar() {
+  const { embedded } = useGandalf();
   const { session, firebaseUser, signOut } = useAuth();
+  const t = useT();
 
   const role = session?.role;
   const isRead = role === "consultant" || role === "gestionnaire" || role === "admin" || role === "superadmin";
@@ -24,18 +28,18 @@ export function Sidebar() {
   // « masqué ≠ perdu » : mêmes pages que la NavBar.
   const getLinks = useCallback(() => {
     const links: Array<{ label: string; icon: string; href: string; mobileOnly?: boolean }> = [
-      { label: "Produits", icon: "📦", href: "/produits" },
-      { label: "Outils", icon: "🧰", href: "/outils" },
-      { label: "Assistant IA", icon: "🤖", href: "/assistant" },
+      { label: t("nav.produits"), icon: "📦", href: "/produits" },
+      { label: t("nav.outils"), icon: "🧰", href: "/outils" },
+      { label: t("nav.assistant"), icon: "🤖", href: "/assistant" },
     ];
     if (isRead) {
-      links.push({ label: "Analyse CEO", icon: "📊", href: "/analyse-ceo" });
+      links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo" });
     }
     if (isAdmin) {
-      links.push({ label: "Audit", icon: "📋", href: "/audit" });
+      links.push({ label: t("nav.audit"), icon: "📋", href: "/audit" });
     }
     return links;
-  }, [isRead, isAdmin]);
+  }, [isRead, isAdmin, t]);
 
   // Initialize GANDALF widget once session is ready
   const initDone = useRef(false);
@@ -101,14 +105,14 @@ export function Sidebar() {
     firebaseUser.getIdToken().then((t: string) => gw.setToken(t)).catch(() => {});
   }, [firebaseUser]);
 
-  if (!session) return null;
+  if (!session || embedded) return null; // en mode embarqué, le shell fournit le menu
 
   return (
     <button
       id="avatar-burger-btn"
       onClick={() => (window as any).GandalfWidget?.toggle()}
       className="avatar-burger-btn relative"
-      title="Menu"
+      title={t("nav.menu")}
     >
       <div className="avatar-burger-inner">
         {session.photoURL && (

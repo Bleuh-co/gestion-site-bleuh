@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { Toaster } from "sonner";
 import Script from "next/script";
+import { StandaloneWidgets } from "@/components/StandaloneWidgets";
 import { headers } from "next/headers";
 import { GandalfProvider } from "@bleuh-co/gandalf-sdk-next/client";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
-import { StandaloneWidgets } from "@/components/StandaloneWidgets";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -15,7 +15,7 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
 export const metadata: Metadata = {
   title: "Gestion Site Bleuh — Chanv",
-  description: "Champ	Valeur — Groupe Chanv",
+  description: "Gestion des produits, outils et contenu du site Bleuh — Groupe Chanv",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
@@ -42,7 +42,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang = h.get("x-gandalf-lang") || "fr";
   const theme = h.get("x-gandalf-theme") || "light";
   return (
-    <html lang={lang} className={`${inter.variable} ${outfit.variable}${theme === "dark" ? " gandalf-dark" : ""}`}>
+    <html
+      lang={lang}
+      className={`${inter.variable} ${outfit.variable}${theme === "dark" ? " gandalf-dark" : ""}`}
+    >
       <body className="min-h-screen antialiased font-sans">
         <GandalfProvider embedded={embedded} lang={lang} theme={theme}>
           <AuthProvider>

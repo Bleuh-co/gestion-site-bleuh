@@ -7,6 +7,16 @@ import { useAuth } from "@/components/AuthProvider";
 import { allowedDomains } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
+/**
+ * NB : contrairement au modèle de référence (où le handoff SSO Gandalf est
+ * géré globalement dans AuthProvider), cette page garde son PROPRE
+ * traitement #sso=<idToken> (échange complet : session + custom token +
+ * favoris Hub). Ses effets s'exécutent avant ceux du provider et consomment
+ * le hash en premier — voir le commentaire correspondant dans
+ * AuthProvider.tsx. Ce choix reste nécessaire ici pour la carte de refus
+ * (deniedEmail) et le préchargement des favoris, propres à Gestion Site
+ * Bleuh.
+ */
 export default function LoginPage() {
   const { session, signInWithGoogle, loading, deniedEmail } = useAuth();
   const t = useT();
