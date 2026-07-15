@@ -15,7 +15,10 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 export function Sidebar() {
   const { session, firebaseUser, signOut } = useAuth();
 
-  const isAdmin = session?.role === "admin" || session?.role === "superadmin";
+  const role = session?.role;
+  const isRead = role === "consultant" || role === "gestionnaire" || role === "admin" || role === "superadmin";
+  const isWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
+  const isAdmin = role === "admin" || role === "superadmin";
 
   // Build app-specific links for the widget
   // « masqué ≠ perdu » : mêmes pages que la NavBar.
@@ -25,11 +28,14 @@ export function Sidebar() {
       { label: "Outils", icon: "🧰", href: "/outils" },
       { label: "Assistant IA", icon: "🤖", href: "/assistant" },
     ];
-    if (isAdmin) {
+    if (isRead) {
       links.push({ label: "Analyse CEO", icon: "📊", href: "/analyse-ceo" });
     }
+    if (isAdmin) {
+      links.push({ label: "Audit", icon: "📋", href: "/audit" });
+    }
     return links;
-  }, [isAdmin]);
+  }, [isRead, isAdmin]);
 
   // Initialize GANDALF widget once session is ready
   const initDone = useRef(false);

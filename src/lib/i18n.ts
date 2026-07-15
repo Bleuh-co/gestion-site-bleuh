@@ -33,11 +33,13 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Outils",
     "nav.assistant": "Assistant IA",
     "nav.analyseCeo": "Analyse CEO",
+    "nav.audit": "Audit",
 
     // Rôles
     "role.superadmin": "Super Administrateur",
     "role.admin": "Administrateur",
-    "role.membre": "Membre",
+    "role.gestionnaire": "Gestionnaire",
+    "role.consultant": "Consultant",
     "role.blocked": "Bloqué",
 
     // Connexion
@@ -98,10 +100,12 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Tools",
     "nav.assistant": "AI Assistant",
     "nav.analyseCeo": "CEO Analysis",
+    "nav.audit": "Audit",
 
     "role.superadmin": "Super Administrator",
     "role.admin": "Administrator",
-    "role.membre": "Member",
+    "role.gestionnaire": "Manager",
+    "role.consultant": "Consultant",
     "role.blocked": "Blocked",
 
     "login.loading": "Loading...",
@@ -154,10 +158,12 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Herramientas",
     "nav.assistant": "Asistente IA",
     "nav.analyseCeo": "Análisis CEO",
+    "nav.audit": "Auditoría",
 
     "role.superadmin": "Superadministrador",
     "role.admin": "Administrador",
-    "role.membre": "Miembro",
+    "role.gestionnaire": "Gestor",
+    "role.consultant": "Consultor",
     "role.blocked": "Bloqueado",
 
     "login.loading": "Cargando...",
