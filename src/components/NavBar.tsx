@@ -17,10 +17,15 @@ export function NavBar() {
 
   if (!session) return null;
 
-  // Liens de navigation de l'app — adapter selon les pages métier.
-  // « masqué ≠ perdu » : chaque lien du header plein doit exister ici aussi.
+  const isAdmin = session.role === "admin" || session.role === "superadmin";
+
+  // Liens de navigation de l'app — « masqué ≠ perdu » : chaque lien du header
+  // plein doit exister ici aussi (et dans la Sidebar).
   const links: { href: string; label: string; icon?: React.ReactNode; show: boolean }[] = [
-    { href: "/bleuh", label: t("nav.home"), show: true },
+    { href: "/produits", label: t("nav.produits"), show: true },
+    { href: "/outils", label: t("nav.outils"), show: true },
+    { href: "/assistant", label: t("nav.assistant"), show: true },
+    { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isAdmin },
   ];
 
   const isActive = (href: string) =>
