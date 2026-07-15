@@ -15,43 +15,143 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Produits
+// Produits (catalogue web bleuh.co — collection Firestore `products`,
+// id de doc = slug.fr. Porté depuis Formulaire DB-Products-Master
+// routes/site-products.js — voir brief de portage.)
 // ─────────────────────────────────────────────────────────────
 export type ProductStatus = "draft" | "published" | "archived";
-export type ProductCategory =
-  | "textile"
-  | "accessoire"
-  | "cosmetique"
-  | "alimentaire"
-  | "autre";
+export type ProductStrain = "indica" | "sativa" | "hybrid";
+export type ProductProvince = "qc" | "on";
+
+export interface Localized {
+  fr: string;
+  en: string;
+}
+
+export interface LocalizedNullable {
+  fr: string | null;
+  en: string | null;
+}
+
+export interface ProductDetails {
+  format: Localized;
+  variety: Localized;
+  effects: Localized;
+  terpenes: Localized;
+  growLocation: Localized;
+  distribution: Localized;
+}
+
+export interface ProductImages {
+  main: string;
+  gallery: string[];
+  aromaIcons?: string[]; // legacy WordPress, lecture seule
+}
+
+export interface ProductBadge {
+  image: string;
+  alt: string;
+}
+
+export interface StudioLink {
+  studio_asset_id: string;
+  linked_at: string;
+  linked_by: string | null;
+}
+
+export interface ProductRelated {
+  name: string;
+  url: string;
+  postId?: number;
+  thc?: string | null;
+  format?: string;
+  image?: string;
+}
+
+export interface ProductRotationVariety {
+  name: string;
+  url: string;
+  category?: string;
+  thc?: string | null;
+  image?: string;
+  badgeImage?: string | null;
+  isNewVariety?: boolean;
+}
 
 export interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  category: ProductCategory;
-  status: ProductStatus;
-  price: number; // en cents
-  currency: "CAD" | "USD" | "EUR";
-  stock: number;
-  imageUrl?: string;
+  id: string; // = slug.fr, injecté par docToProduct (doc.id)
+  wpPostId: number | null;
+  slug: Localized;
+  url: LocalizedNullable | null;
+  name: Localized;
+  collection: string; // string libre, pas un enum strict côté validation
+  brand: string | null;
+  strain: ProductStrain;
   tags: string[];
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
-  createdBy: string; // uid
+  formatSlug: string;
+  weight: string;
+  thc: string;
+  thcMin: number | null;
+  thcMax: number | null;
+  provinces: ProductProvince[];
+  isNew: boolean;
+  isWebOnly: boolean;
+  isComingSoon: boolean;
+  currentRotation: LocalizedNullable | null;
+  description: Localized;
+  metaDescription: Localized;
+  details: ProductDetails;
+  images: ProductImages;
+  badges: ProductBadge[];
+  buyLink: LocalizedNullable | null;
+  ocsLink: string | null;
+  gtin: string | null;
+  sku: string | null;
+  rotationVarieties: ProductRotationVariety[];
+  relatedProducts: ProductRelated[];
+  sourceNotes: string | null;
+  status: ProductStatus;
+  createdAt: string;
+  updatedAt: string;
+  // legacy/enrichis, lecture seule (pas dans validateProductInput)
+  categories?: string[];
+  pills?: { fr: string[]; en: string[] };
+  attributes?: { fr: Record<string, string | null>; en: Record<string, string | null> };
+  studio_links?: Record<string, StudioLink>;
 }
 
 export interface ProductInput {
-  name: string;
-  description: string;
-  category: ProductCategory;
-  status: ProductStatus;
-  price: number;
-  currency: "CAD" | "USD" | "EUR";
-  stock: number;
-  imageUrl?: string;
+  wpPostId: number | null;
+  slug: Localized; // dérivé de name si absent (slugify)
+  url: LocalizedNullable | null;
+  name: Localized; // requis : fr et en non vides
+  collection: string; // requis, trim non vide
+  brand: string | null;
+  strain: ProductStrain; // défaut "hybrid"
   tags: string[];
+  formatSlug: string;
+  weight: string;
+  thc: string;
+  thcMin: number | null;
+  thcMax: number | null;
+  provinces: ProductProvince[]; // requis, ≥1
+  isNew: boolean;
+  isWebOnly: boolean;
+  isComingSoon: boolean;
+  currentRotation: LocalizedNullable | null;
+  description: Localized;
+  metaDescription: Localized;
+  details: ProductDetails;
+  images: ProductImages;
+  badges: ProductBadge[];
+  buyLink: LocalizedNullable | null;
+  ocsLink: string | null;
+  gtin: string | null; // /^\d{8,14}$/ si fourni
+  sku: string | null; // ≤64 car., unicité vérifiée en base
+  rotationVarieties: unknown[];
+  relatedProducts: unknown[];
+  sourceNotes: string | null;
+  status: ProductStatus; // défaut "draft"
 }
 
 // ─────────────────────────────────────────────────────────────
