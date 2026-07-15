@@ -1,14 +1,18 @@
-import { requireSession } from "@/lib/auth-server";
+import { requireRead } from "@/lib/auth-server";
+import { AssistantClient } from "./AssistantClient";
 
 export default async function AssistantPage() {
-  await requireSession();
-  return (
-    <main className="mx-auto max-w-5xl p-6">
-      <h1 className="text-2xl font-bold mb-6">Assistant IA</h1>
-      <div className="card p-8 text-center text-gray-400">
-        <p>🚧 Page en construction</p>
-        <p className="text-sm mt-2">Voir Antigravity.md pour le plan complet</p>
-      </div>
-    </main>
-  );
+  const session = await requireRead().catch(() => null);
+  if (!session) {
+    return (
+      <main className="mx-auto max-w-5xl p-6">
+        <h1 className="text-2xl font-bold mb-6">Assistant</h1>
+        <div className="card p-8 text-center text-gray-400">
+          <p>Accès refusé.</p>
+        </div>
+      </main>
+    );
+  }
+
+  return <AssistantClient role={session.role} />;
 }
