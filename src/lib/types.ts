@@ -155,33 +155,6 @@ export interface ProductInput {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Outils internes
-// ─────────────────────────────────────────────────────────────
-export type ToolType = "url" | "internal" | "api";
-
-export interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  type: ToolType;
-  href: string;
-  icon: string; // emoji
-  enabled: boolean;
-  order: number;
-  createdAt: string;
-}
-
-export interface ToolInput {
-  name: string;
-  description: string;
-  type: ToolType;
-  href: string;
-  icon: string;
-  enabled: boolean;
-  order: number;
-}
-
-// ─────────────────────────────────────────────────────────────
 // Assistant IA
 // ─────────────────────────────────────────────────────────────
 export type ChatRole = "user" | "assistant" | "system";
