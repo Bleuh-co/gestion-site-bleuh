@@ -1,14 +1,16 @@
-// Rôle interne Gestion Site Bleuh (mappé depuis le rôle standardisé Chanv)
-// - superadmin : accès total
-// - admin      : gestion complète
-// - membre     : consultation
-// - blocked    : pas d'accès
-export type Role = "superadmin" | "admin" | "membre" | "blocked";
+// Rôle interne Gestion Site Bleuh (mappé depuis le grade Gandalf).
+// - superadmin   : accès total
+// - admin        : gestion complète + journaux d'audit
+// - gestionnaire : lecture + création/édition/suppression, lancer les outils
+// - consultant   : lecture seule
+// - blocked      : pas d'accès
+export type Role = "superadmin" | "admin" | "gestionnaire" | "consultant" | "blocked";
 
 export const ROLE_LABELS: Record<Role, string> = {
   superadmin: "Super Administrateur",
   admin: "Administrateur",
-  membre: "Membre",
+  gestionnaire: "Gestionnaire",
+  consultant: "Consultant",
   blocked: "Bloqué",
 };
 

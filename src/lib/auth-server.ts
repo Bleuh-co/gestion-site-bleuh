@@ -38,8 +38,9 @@ function mapStandardRole(grade: string): Role {
     case "Administrateur":
       return "admin";
     case "Gestionnaire":
+      return "gestionnaire";
     case "Consulter":
-      return "membre";
+      return "consultant";
     case "Non visible":
       return "blocked";
     default:
@@ -226,13 +227,30 @@ export async function requireSession(): Promise<SessionContext> {
   return s;
 }
 
-/**
- * Exige `admin` ou `superadmin`.
- */
-export async function requireAdmin(): Promise<SessionContext> {
+/** Lecture : tout rôle authentifié non bloqué (consultant et plus). */
+export async function requireRead(): Promise<SessionContext> {
+  return requireSession();
+}
+
+/** Écriture : gestionnaire, admin ou superadmin. */
+export async function requireWrite(): Promise<SessionContext> {
+  const s = await requireSession();
+  if (s.role !== "gestionnaire" && s.role !== "admin" && s.role !== "superadmin") {
+    throw new Error("FORBIDDEN");
+  }
+  return s;
+}
+
+/** Journaux d'audit : admin ou superadmin uniquement. */
+export async function requireAudit(): Promise<SessionContext> {
   const s = await requireSession();
   if (s.role !== "admin" && s.role !== "superadmin") throw new Error("FORBIDDEN");
   return s;
+}
+
+/** @deprecated conservé pour compat — équivaut à requireAudit (admin+). */
+export async function requireAdmin(): Promise<SessionContext> {
+  return requireAudit();
 }
 
 export { SESSION_COOKIE };
