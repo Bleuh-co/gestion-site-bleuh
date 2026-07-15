@@ -29,6 +29,10 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.subtitle": "Groupe Chanv",
     "nav.backToHub": "Retour au Hub",
     "nav.menu": "Menu",
+    "nav.produits": "Produits",
+    "nav.outils": "Outils",
+    "nav.assistant": "Assistant IA",
+    "nav.analyseCeo": "Analyse CEO",
 
     // Rôles
     "role.superadmin": "Super Administrateur",
@@ -60,12 +64,40 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "common.confirm": "Confirmer",
     "common.loading": "Chargement...",
     "common.error": "Une erreur est survenue",
+    "common.new": "Nouveau",
+    "common.edit": "Modifier",
+    "common.search": "Rechercher",
+
+    // Produits
+    "produits.title": "Produits",
+    "produits.new": "Nouveau produit",
+    "produits.detail": "Détail du produit",
+    "produits.status.draft": "Brouillon",
+    "produits.status.published": "Publié",
+    "produits.status.archived": "Archivé",
+
+    // Outils
+    "outils.title": "Outils",
+    "outils.manage": "Gestion des outils",
+
+    // Assistant
+    "assistant.title": "Assistant IA",
+    "assistant.placeholder": "Posez votre question...",
+
+    // Analyse CEO
+    "ceoAnalysis.title": "Analyse CEO",
+    "ceoAnalysis.metrics": "Métriques",
+    "ceoAnalysis.insights": "Recommandations",
   },
   en: {
     "nav.home": "Home",
     "nav.subtitle": "Groupe Chanv",
     "nav.backToHub": "Back to Hub",
     "nav.menu": "Menu",
+    "nav.produits": "Products",
+    "nav.outils": "Tools",
+    "nav.assistant": "AI Assistant",
+    "nav.analyseCeo": "CEO Analysis",
 
     "role.superadmin": "Super Administrator",
     "role.admin": "Administrator",
@@ -92,12 +124,36 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "common.confirm": "Confirm",
     "common.loading": "Loading...",
     "common.error": "An error occurred",
+    "common.new": "New",
+    "common.edit": "Edit",
+    "common.search": "Search",
+
+    "produits.title": "Products",
+    "produits.new": "New product",
+    "produits.detail": "Product details",
+    "produits.status.draft": "Draft",
+    "produits.status.published": "Published",
+    "produits.status.archived": "Archived",
+
+    "outils.title": "Tools",
+    "outils.manage": "Manage tools",
+
+    "assistant.title": "AI Assistant",
+    "assistant.placeholder": "Ask your question...",
+
+    "ceoAnalysis.title": "CEO Analysis",
+    "ceoAnalysis.metrics": "Metrics",
+    "ceoAnalysis.insights": "Recommendations",
   },
   es: {
     "nav.home": "Inicio",
     "nav.subtitle": "Groupe Chanv",
     "nav.backToHub": "Volver al Hub",
     "nav.menu": "Menú",
+    "nav.produits": "Productos",
+    "nav.outils": "Herramientas",
+    "nav.assistant": "Asistente IA",
+    "nav.analyseCeo": "Análisis CEO",
 
     "role.superadmin": "Superadministrador",
     "role.admin": "Administrador",
@@ -124,6 +180,26 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "common.confirm": "Confirmar",
     "common.loading": "Cargando...",
     "common.error": "Ocurrió un error",
+    "common.new": "Nuevo",
+    "common.edit": "Editar",
+    "common.search": "Buscar",
+
+    "produits.title": "Productos",
+    "produits.new": "Nuevo producto",
+    "produits.detail": "Detalle del producto",
+    "produits.status.draft": "Borrador",
+    "produits.status.published": "Publicado",
+    "produits.status.archived": "Archivado",
+
+    "outils.title": "Herramientas",
+    "outils.manage": "Gestión de herramientas",
+
+    "assistant.title": "Asistente IA",
+    "assistant.placeholder": "Haz tu pregunta...",
+
+    "ceoAnalysis.title": "Análisis CEO",
+    "ceoAnalysis.metrics": "Métricas",
+    "ceoAnalysis.insights": "Recomendaciones",
   },
 };
 
