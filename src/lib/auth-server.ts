@@ -67,13 +67,13 @@ function mapLegacyToStandard(oldRole: string): string {
 /**
  * Résout l'ID Firestore de l'app Gestion Site Bleuh dans la collection `apps`.
  *
- * Priorité 1 : variable d'env GESTISITEBLEUH_APP_ID (direct, zéro ambiguïté).
+ * Priorité 1 : variable d'env GESTIONSITEBLEUH_APP_ID (direct, zéro ambiguïté).
  * Priorité 2 : matcher par nom dans la collection apps (fallback dev).
  */
 async function resolveGestiSiteBleuhAppId(
   db: FirebaseFirestore.Firestore
 ): Promise<{ appId: string; appName: string | null }> {
-  const override = process.env.GESTISITEBLEUH_APP_ID;
+  const override = process.env.GESTIONSITEBLEUH_APP_ID;
   if (override) {
     let appName: string | null = null;
     try {
