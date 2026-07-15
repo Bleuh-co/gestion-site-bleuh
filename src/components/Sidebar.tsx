@@ -28,15 +28,15 @@ export function Sidebar() {
   // « masqué ≠ perdu » : mêmes pages que la NavBar.
   const getLinks = useCallback(() => {
     const links: Array<{ label: string; icon: string; href: string; mobileOnly?: boolean }> = [
-      { label: t("nav.produits"), icon: "📦", href: "/produits" },
-      { label: t("nav.outils"), icon: "🧰", href: "/outils" },
-      { label: t("nav.assistant"), icon: "🤖", href: "/assistant" },
+      { label: t("nav.produits"), icon: "📦", href: "/produits", mobileOnly: true },
+      { label: t("nav.outils"), icon: "🧰", href: "/outils", mobileOnly: true },
+      { label: t("nav.assistant"), icon: "🤖", href: "/assistant", mobileOnly: true },
     ];
     if (isRead) {
-      links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo" });
+      links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
     }
     if (isAdmin) {
-      links.push({ label: t("nav.audit"), icon: "📋", href: "/audit" });
+      links.push({ label: t("nav.audit"), icon: "📋", href: "/audit", mobileOnly: true });
     }
     return links;
   }, [isRead, isAdmin, t]);
