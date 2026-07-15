@@ -8,7 +8,7 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
 /**
  * Sidebar component — delegates to the GANDALF widget (gandalf-widget.js).
- * 
+ *
  * The widget is loaded via <Script> in layout.tsx and initialized here
  * with user info + app-specific navigation links.
  */
@@ -18,14 +18,15 @@ export function Sidebar() {
   const isAdmin = session?.role === "admin" || session?.role === "superadmin";
 
   // Build app-specific links for the widget
+  // « masqué ≠ perdu » : mêmes pages que la NavBar.
   const getLinks = useCallback(() => {
     const links: Array<{ label: string; icon: string; href: string; mobileOnly?: boolean }> = [
-      { label: "Mes tâches", icon: "📋", href: "/bleuh", mobileOnly: true },
+      { label: "Produits", icon: "📦", href: "/produits" },
+      { label: "Outils", icon: "🧰", href: "/outils" },
+      { label: "Assistant IA", icon: "🤖", href: "/assistant" },
     ];
     if (isAdmin) {
-      links.push(
-        { label: "Toutes les tâches", icon: "📑", href: "/bleuh", mobileOnly: true },
-      );
+      links.push({ label: "Analyse CEO", icon: "📊", href: "/analyse-ceo" });
     }
     return links;
   }, [isAdmin]);
