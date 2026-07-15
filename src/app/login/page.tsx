@@ -62,7 +62,7 @@ export default function LoginPage() {
               try { localStorage.setItem("chanv_sidebar_favorites", JSON.stringify(result.favorites)); } catch {}
             }
           }
-          window.location.href = "/bleuh";
+          window.location.href = "/produits";
           return;
         }
         console.warn("SSO refused");
@@ -77,7 +77,7 @@ export default function LoginPage() {
   // Redirection si déjà connecté
   useEffect(() => {
     if (session) {
-      router.replace("/bleuh");
+      router.replace("/produits");
     }
   }, [session, router]);
 
