@@ -26,11 +26,15 @@ type Ga4Traffic =
   | { status: "ok"; sessions: number; activeUsers: number; screenPageViews: number }
   | { status: "non_instrumente" };
 
+type CatalogPresence =
+  | { status: "ok"; skus: number; collections: number; provinces: string[] }
+  | { status: "non_instrumente" };
+
 interface CeoAnalysisResult {
   generatedAt: string;
   period: Period;
   kpis: CeoKpis;
-  sources: { ga4: Ga4Traffic; ventes: "non_instrumente" };
+  sources: { ga4: Ga4Traffic; ventes: "non_instrumente"; catalogue: CatalogPresence };
   aiSummary: string | null;
 }
 
@@ -231,11 +235,12 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
       )}
 
       <section className="card p-4">
-        <h2 className="text-lg font-semibold mb-1">Sources à instrumenter</h2>
+        <h2 className="text-lg font-semibold mb-1">Sources commerciales</h2>
         <p className="text-sm text-chanv-terre/70 mb-3">
-          Ces sources ne sont pas encore branchées à ce module — aucun chiffre n&apos;est simulé à leur place.
+          Le catalogue est lu en direct depuis Firestore. Le trafic et les ventes restent à instrumenter — aucun
+          chiffre n&apos;est simulé à leur place.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
               <p className="font-semibold text-sm">Trafic / clics (GA4)</p>
@@ -257,9 +262,30 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Ventes réelles</p>
+              <p className="font-semibold text-sm">Catalogue en marché</p>
+              {data?.sources.catalogue.status === "ok" ? (
+                <p className="text-xs text-chanv-terre/60">
+                  {nombreFmt.format(data.sources.catalogue.skus)} SKU(s) publié(s) ·{" "}
+                  {nombreFmt.format(data.sources.catalogue.collections)} collection(s) ·{" "}
+                  {data.sources.catalogue.provinces.length > 0
+                    ? data.sources.catalogue.provinces.map((p) => p.toUpperCase()).join(", ")
+                    : "aucune province"}
+                </p>
+              ) : (
+                <p className="text-xs text-chanv-terre/60">
+                  Collection produits Firestore vide ou illisible.
+                </p>
+              )}
+            </div>
+            <span className="badge-neutral">
+              {data?.sources.catalogue.status === "ok" ? "Live" : "Non instrumenté"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
+            <div>
+              <p className="font-semibold text-sm">Ventes (unités vendues)</p>
               <p className="text-xs text-chanv-terre/60">
-                Aucune source de vérité (SQDC/MetroGreen/POS) connectée à ce module.
+                En attente d&apos;un flux sell-through (rapport fournisseur SQDC / POS).
               </p>
             </div>
             <span className="badge-neutral">Non instrumenté</span>

@@ -1,6 +1,7 @@
 import "server-only";
 import { Timestamp } from "firebase-admin/firestore";
-import { chatDb } from "./firebase-admin";
+import { adminDb, chatDb } from "./firebase-admin";
+import { PRODUCTS_COLLECTION } from "./products-service";
 
 // ─────────────────────────────────────────────────────────────
 // Analyse CEO — KPIs réels dérivés du bot Bleuh (bleuh-chat).
@@ -102,9 +103,23 @@ export interface Ga4TrafficNonInstrumente {
 
 export type Ga4Traffic = Ga4TrafficOk | Ga4TrafficNonInstrumente;
 
+export interface CatalogPresenceOk {
+  status: "ok";
+  skus: number;
+  collections: number;
+  provinces: string[];
+}
+
+export interface CatalogPresenceNonInstrumente {
+  status: "non_instrumente";
+}
+
+export type CatalogPresence = CatalogPresenceOk | CatalogPresenceNonInstrumente;
+
 export interface CeoSources {
   ga4: Ga4Traffic;
   ventes: "non_instrumente";
+  catalogue: CatalogPresence;
 }
 
 export interface CeoAnalysisResult {
@@ -225,10 +240,11 @@ const AI_SYSTEM_PROMPT = `Tu es un analyste qui résume des indicateurs internes
 Règles strictes :
 - Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre.
 - N'établis JAMAIS de lien entre le volume de chat et des ventes, un trafic ou une conversion : ces données ne sont pas connectées à ce module.
+- Le signal « catalogue » (SKUs en marché, collections, provinces) est une donnée réelle distincte, lue directement dans le catalogue produits. Tu peux la citer telle quelle comme un fait, mais sans lui inventer de lien causal avec le volume de chat.
 - Si les métriques suggèrent des sujets récurrents ou toute observation qui n'est pas un chiffre compté directement, qualifie-la explicitement d'estimation.
 - Réponds en français, en 3 à 5 puces courtes et factuelles (une ligne chacune, préfixée par "- "), sans préambule ni conclusion.`;
 
-async function callAiSummary(kpis: CeoKpis): Promise<string | null> {
+async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -247,6 +263,14 @@ async function callAiSummary(kpis: CeoKpis): Promise<string | null> {
         kpis.sessions.escalationRate === null
           ? "n/a (aucune session sur la période)"
           : `${(kpis.sessions.escalationRate * 100).toFixed(1)}%`,
+      catalogue:
+        catalogue.status === "ok"
+          ? {
+              skusEnMarche: catalogue.skus,
+              collectionsDistinctes: catalogue.collections,
+              provincesCouvertes: catalogue.provinces,
+            }
+          : "non_instrumente",
     };
 
     const response = await client.messages.create({
@@ -313,15 +337,55 @@ export async function getGa4Traffic(days: number): Promise<Ga4Traffic> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Présence catalogue — signal commercial RÉEL, lu directement dans la
+// collection Firestore `products` (même base que products-service, réutilise
+// adminDb()). Compte les produits publiés (SKUs en marché), leurs collections
+// distinctes et les provinces couvertes. Jamais de throw : collection vide,
+// illisible ou Firestore injoignable → { status: 'non_instrumente' }.
+// ─────────────────────────────────────────────────────────────
+
+export async function getCatalogPresence(): Promise<CatalogPresence> {
+  try {
+    const snap = await adminDb().collection(PRODUCTS_COLLECTION).where("status", "==", "published").get();
+    if (snap.empty) return { status: "non_instrumente" };
+
+    const collections = new Set<string>();
+    const provinces = new Set<string>();
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      if (typeof data.collection === "string" && data.collection.trim()) {
+        collections.add(data.collection.trim());
+      }
+      if (Array.isArray(data.provinces)) {
+        data.provinces.forEach((p: unknown) => {
+          if (typeof p === "string" && p.trim()) provinces.add(p);
+        });
+      }
+    });
+
+    return {
+      status: "ok",
+      skus: snap.size,
+      collections: collections.size,
+      provinces: Array.from(provinces).sort(),
+    };
+  } catch (e) {
+    console.warn("[ceo-analysis] lecture products échouée :", e);
+    return { status: "non_instrumente" };
+  }
+}
+
 export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const [aiSummary, ga4] = await Promise.all([callAiSummary(kpis), getGa4Traffic(kpis.days)]);
+  const [ga4, catalogue] = await Promise.all([getGa4Traffic(kpis.days), getCatalogPresence()]);
+  const aiSummary = await callAiSummary(kpis, catalogue);
 
   return {
     generatedAt: new Date().toISOString(),
     period,
     kpis,
-    sources: { ga4, ventes: "non_instrumente" },
+    sources: { ga4, ventes: "non_instrumente", catalogue },
     aiSummary,
   };
 }
@@ -336,6 +400,7 @@ export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisRe
 const DEEP_ANALYSIS_SYSTEM_PROMPT = `Tu es un analyste senior qui produit une analyse stratégique approfondie des indicateurs internes d'un chatbot support (Bleuh) pour un CEO.
 Règles strictes :
 - Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre, aucune donnée externe (pas de trafic, pas de ventes : ces sources ne sont pas connectées à ce module sauf si explicitement fournies).
+- Le signal « catalogue » (SKUs en marché, collections, provinces), s'il est fourni, est une donnée réelle distincte lue dans le catalogue produits : tu peux la citer comme fait mais sans lui inventer de lien causal avec le volume de chat.
 - N'énonce JAMAIS d'allégation de santé (produits liés au cannabis/chanvre) — reste strictement sur l'usage du service de support et les indicateurs opérationnels.
 - Produis entre 5 et 8 insights stratégiques, chacun avec une recommandation concrète et actionnable.
 - Qualifie explicitement d'estimation toute observation qui n'est pas un chiffre compté directement (ex. coût IA, tendances).
@@ -356,6 +421,7 @@ export interface DeepAnalysisResult {
  */
 export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysisResult> {
   const kpis = await buildCeoKpis(period);
+  const catalogue = await getCatalogPresence();
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   let insights: string | null = null;
@@ -377,6 +443,14 @@ export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysi
           kpis.sessions.escalationRate === null
             ? "n/a (aucune session sur la période)"
             : `${(kpis.sessions.escalationRate * 100).toFixed(1)}%`,
+        catalogue:
+          catalogue.status === "ok"
+            ? {
+                skusEnMarche: catalogue.skus,
+                collectionsDistinctes: catalogue.collections,
+                provincesCouvertes: catalogue.provinces,
+              }
+            : "non_instrumente",
       };
 
       const response = await client.messages.create({
