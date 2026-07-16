@@ -33,6 +33,38 @@ export interface Subscriber {
   updatedAt?: string;
 }
 
+export interface Campaign {
+  id: string;
+  name: string;
+  subject: string;
+  type: string; // "regular" | "followup" | "ab"
+  dateSend: string; // "YYYY-MM-DD HH:MM:SS" (tel quel) ou ISO
+  dateCreated: string;
+  recipients: number;
+  openCount: number;
+  openRate: number; // %
+  clickCount: number;
+  clickRate: number; // %
+}
+
+export interface CampaignsResult {
+  data: Campaign[];
+  hasMore: boolean;
+  nextOffset: number;
+}
+
+export interface CampaignsSummary {
+  campaigns: number;
+  totalRecipients: number;
+  avgOpenRate: number; // % pondéré
+  avgClickRate: number; // % pondéré
+}
+
+export interface CampaignsResponse {
+  summary: CampaignsSummary;
+  campaigns: Campaign[];
+}
+
 export interface MLGroup {
   id: string;
   name: string;

@@ -22,6 +22,8 @@ import type {
   MLGroup,
   MLField,
   SubscriberStatus,
+  Campaign,
+  CampaignsResult,
 } from "./infolettre-types";
 
 export const BLEUH_ACCOUNT_ID = "bleuh";
@@ -52,7 +54,27 @@ export interface BleuhMailerLiteClient {
   }): Promise<FetchSubscribersResult>;
   getGroups(): Promise<MLGroup[]>;
   getFields(): Promise<MLField[]>;
+  getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult>;
   getMaskedKey(): string;
+}
+
+/** Mappe une campagne brute ML Classic v2 vers notre type propre. */
+function mapCampaign(c: Record<string, unknown>): Campaign {
+  const opened = (c.opened as Record<string, unknown>) || {};
+  const clicked = (c.clicked as Record<string, unknown>) || {};
+  return {
+    id: String(c.id),
+    name: (c.name as string) || "",
+    subject: (c.subject as string) || "",
+    type: (c.type as string) || "regular",
+    dateSend: (c.date_send as string) || (c.date_created as string) || "",
+    dateCreated: (c.date_created as string) || "",
+    recipients: Number(c.total_recipients) || 0,
+    openCount: Number(opened.count) || 0,
+    openRate: Number(opened.rate) || 0,
+    clickCount: Number(clicked.count) || 0,
+    clickRate: Number(clicked.rate) || 0,
+  };
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -192,6 +214,19 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     }));
   }
 
+  async getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult> {
+    const limit = Math.min(opts.limit || 100, 100);
+    const offset = opts.offset || 0;
+    const url = `${this.baseUrl}/campaigns?status=sent&limit=${limit}&offset=${offset}`;
+    const res = await fetchWithRetry(url, { headers: this.headers() });
+    if (!res.ok) throw new Error(`ML Classic campaigns: ${res.status}`);
+    const raw = await res.json();
+    const list = Array.isArray(raw) ? raw : [];
+    const data = list.map((c) => mapCampaign(c as Record<string, unknown>));
+    const hasMore = data.length === limit;
+    return { data, hasMore, nextOffset: offset + data.length };
+  }
+
   private mapSubscriber(s: Record<string, unknown>): Subscriber {
     const fields: Record<string, string | number | null> = {};
     if (Array.isArray(s.fields)) {
@@ -279,6 +314,31 @@ class MockClient implements BleuhMailerLiteClient {
       { id: "1", key: "name", name: "Nom", type: "text" },
       { id: "2", key: "city", name: "Ville", type: "text" },
     ];
+  }
+
+  async getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult> {
+    const all: Campaign[] = Array.from({ length: 6 }, (_, i) => {
+      const recipients = 1000 + i * 250;
+      const openCount = Math.round(recipients * (0.3 + i * 0.02));
+      const clickCount = Math.round(recipients * (0.04 + i * 0.005));
+      return {
+        id: String(100 + i),
+        name: `Infolettre ${i + 1}`,
+        subject: `Nouveautés Bleuh #${i + 1}`,
+        type: i % 3 === 0 ? "ab" : "regular",
+        dateSend: `2026-0${(i % 6) + 1}-15 09:30:00`,
+        dateCreated: `2026-0${(i % 6) + 1}-14 16:00:00`,
+        recipients,
+        openCount,
+        openRate: Math.round((openCount / recipients) * 10000) / 100,
+        clickCount,
+        clickRate: Math.round((clickCount / recipients) * 10000) / 100,
+      };
+    });
+    const limit = Math.min(opts.limit || 100, 100);
+    const offset = opts.offset || 0;
+    const data = all.slice(offset, offset + limit);
+    return { data, hasMore: offset + limit < all.length, nextOffset: offset + data.length };
   }
 
   getMaskedKey(): string {

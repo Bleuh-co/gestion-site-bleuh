@@ -5,8 +5,9 @@ import type { Role } from "@/lib/types";
 import type { MailerLiteAccount, MLField, MLGroup } from "@/lib/infolettre-types";
 import { SubscriberTable } from "./SubscriberTable";
 import { SnapshotsPanel } from "./SnapshotsPanel";
+import { CampaignsPanel } from "./CampaignsPanel";
 
-type Tab = "subscribers" | "groups" | "fields" | "snapshots";
+type Tab = "subscribers" | "groups" | "fields" | "snapshots" | "campaigns";
 
 const FIELD_TYPE_LABEL: Record<string, string> = {
   text: "Texte",
@@ -42,6 +43,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
     { key: "subscribers", label: "Abonnés" },
     { key: "groups", label: "Groupes" },
     { key: "fields", label: "Champs" },
+    { key: "campaigns", label: "Campagnes" },
     { key: "snapshots", label: "Copies" },
   ];
 
@@ -120,6 +122,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
           )}
           {tab === "groups" && <GroupsPanel />}
           {tab === "fields" && <FieldsPanel />}
+          {tab === "campaigns" && <CampaignsPanel />}
           {tab === "snapshots" && <SnapshotsPanel canWrite={canWrite} />}
         </>
       )}
