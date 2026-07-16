@@ -33,7 +33,9 @@ export function NavBar() {
     { href: "/infolettre", label: t("nav.infolettre"), show: isRead },
     { href: "/outils", label: t("nav.outils"), show: isRead },
     { href: "/assistant", label: t("nav.assistant"), show: isRead },
-    { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isRead },
+    // Masqué pour Bleuh — tableau de bord business (trafic/conversions) réservé à la
+    // future app Maison d'Herbes (MDH). Code/page/routes conservés, dé-commenter pour réactiver.
+    // { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isRead },
     { href: "/seo", label: t("nav.seo"), show: isRead },
     { href: "/audit", label: t("nav.audit"), show: isAdmin },
     { href: "/aide", label: t("nav.aide"), show: isRead },
