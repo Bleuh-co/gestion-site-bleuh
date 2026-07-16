@@ -34,6 +34,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.assistant": "Assistant IA",
     "nav.analyseCeo": "Analyse CEO",
     "nav.audit": "Audit",
+    "nav.aide": "Mode d'emploi",
 
     // Rôles
     "role.superadmin": "Super Administrateur",
@@ -101,6 +102,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.assistant": "AI Assistant",
     "nav.analyseCeo": "CEO Analysis",
     "nav.audit": "Audit",
+    "nav.aide": "User Guide",
 
     "role.superadmin": "Super Administrator",
     "role.admin": "Administrator",
@@ -159,6 +161,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.assistant": "Asistente IA",
     "nav.analyseCeo": "Análisis CEO",
     "nav.audit": "Auditoría",
+    "nav.aide": "Guía de uso",
 
     "role.superadmin": "Superadministrador",
     "role.admin": "Administrador",

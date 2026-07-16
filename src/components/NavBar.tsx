@@ -34,6 +34,7 @@ export function NavBar() {
     { href: "/assistant", label: t("nav.assistant"), show: isRead },
     { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isRead },
     { href: "/audit", label: t("nav.audit"), show: isAdmin },
+    { href: "/aide", label: t("nav.aide"), show: isRead },
   ];
 
   if (embedded) {

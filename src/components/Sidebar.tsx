@@ -31,6 +31,7 @@ export function Sidebar() {
       { label: t("nav.produits"), icon: "📦", href: "/produits", mobileOnly: true },
       { label: t("nav.outils"), icon: "🧰", href: "/outils", mobileOnly: true },
       { label: t("nav.assistant"), icon: "🤖", href: "/assistant", mobileOnly: true },
+      { label: t("nav.aide"), icon: "❓", href: "/aide", mobileOnly: true },
     ];
     if (isRead) {
       links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
