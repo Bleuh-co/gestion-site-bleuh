@@ -70,7 +70,30 @@ export interface BleuhMailerLiteClient {
    * déduplique par campaign id.
    */
   getAllSentCampaigns(): Promise<Campaign[]>;
+  /**
+   * HTML complet d'une campagne (GET /campaigns/{id}/content). L'API renvoie
+   * une ou plusieurs variantes ([{ email_id, content }]) : on les concatène.
+   */
+  getCampaignContent(campaignId: string): Promise<string>;
   getMaskedKey(): string;
+}
+
+/** Normalise la réponse /content (tableau de variantes ou objet) en un HTML. */
+function extractHtmlFromContentResponse(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((v) => {
+        const o = (v || {}) as Record<string, unknown>;
+        return (o.content as string) || (o.html as string) || "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (raw && typeof raw === "object") {
+    const o = raw as Record<string, unknown>;
+    return (o.html as string) || (o.content as string) || "";
+  }
+  return typeof raw === "string" ? raw : "";
 }
 
 /** Mappe une campagne brute ML Classic v2 vers notre type propre. */
@@ -266,6 +289,16 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     return Array.from(byId.values());
   }
 
+  async getCampaignContent(campaignId: string): Promise<string> {
+    const res = await fetchWithRetry(
+      `${this.baseUrl}/campaigns/${encodeURIComponent(campaignId)}/content`,
+      { headers: this.headers() }
+    );
+    if (!res.ok) throw new Error(`ML Classic campaign content: ${res.status}`);
+    const raw = await res.json();
+    return extractHtmlFromContentResponse(raw);
+  }
+
   private mapSubscriber(s: Record<string, unknown>): Subscriber {
     const fields: Record<string, string | number | null> = {};
     if (Array.isArray(s.fields)) {
@@ -380,6 +413,17 @@ class MockClient implements BleuhMailerLiteClient {
         clickRate: Math.round((clickCount / recipients) * 10000) / 100,
       };
     });
+  }
+
+  async getCampaignContent(campaignId: string): Promise<string> {
+    // HTML représentatif : titre, preheader masqué, texte, images, CTA stylé.
+    const i = Number(campaignId) % 3;
+    const body = "Nouveautés Bleuh et actualités de la saison. ".repeat(40);
+    const cta =
+      i === 0
+        ? '<a href="#" style="background-color:#282828;color:#fff">Découvrir</a>'
+        : ""; // certaines mock sans CTA → diagnostic « CTA absent »
+    return `<title>Nouveautés Bleuh #${campaignId}</title><div style="display:none;font-size:0px">Aperçu de l'infolettre Bleuh</div><h1>Bonjour</h1><p>${body}</p><img src="x"><img src="y">${cta}`;
   }
 
   getMaskedKey(): string {

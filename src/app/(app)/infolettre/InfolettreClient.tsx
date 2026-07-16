@@ -125,7 +125,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
           {tab === "groups" && <GroupsPanel />}
           {tab === "fields" && <FieldsPanel />}
           {tab === "campaigns" && <CampaignsPanel />}
-          {tab === "trends" && <TrendsPanel />}
+          {tab === "trends" && <TrendsPanel canWrite={canWrite} />}
           {tab === "snapshots" && <SnapshotsPanel canWrite={canWrite} />}
         </>
       )}

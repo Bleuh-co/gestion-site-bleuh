@@ -31,6 +31,26 @@ interface TrendsResponse {
   monthly: MonthlyAggregate[];
 }
 
+interface Diagnostic {
+  campaign: string;
+  subject: string;
+  opened: number;
+  why: string | null;
+  recommandations: string[];
+}
+interface AnalyseResponse {
+  summary: string | null;
+  insights: string[];
+  diagnostics: Diagnostic[];
+  meta: {
+    generatedAt: string;
+    model: string;
+    weightedMeanOpenRate: number;
+    campaignsAnalyzed: number;
+    aiAvailable: boolean;
+  };
+}
+
 const COLOR = {
   total: "#282828",
   active: "#8A7648",
@@ -80,10 +100,35 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) 
   );
 }
 
-export function TrendsPanel() {
+export function TrendsPanel({ canWrite = false }: { canWrite?: boolean }) {
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Analyse IA (à la demande — coûte des tokens) ───────
+  const [ai, setAi] = useState<AnalyseResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const runAnalysis = useCallback(async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/infolettre/analyse", {
+        method: "POST",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Erreur ${res.status}`);
+      }
+      setAi((await res.json()) as AnalyseResponse);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Analyse impossible.");
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,6 +211,101 @@ export function TrendsPanel() {
           {loading ? "Actualisation…" : "Actualiser"}
         </button>
       </div>
+
+      {/* Analyse IA — Gestionnaire+ (la garde serveur requireWrite reste la vraie barrière) */}
+      {canWrite && (
+        <div className="section-card">
+          <div className="flex items-start justify-between flex-wrap gap-3">
+            <SectionTitle
+              title="Analyse IA"
+              subtitle="Diagnostic des tendances et des campagnes qui ont sous-performé, d'après leur contenu."
+            />
+            <button className="btn-primary" disabled={aiLoading} onClick={runAnalysis}>
+              {aiLoading ? "Analyse en cours…" : "Analyser avec l'IA"}
+            </button>
+          </div>
+
+          {aiError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {aiError}
+            </div>
+          )}
+
+          {aiLoading && !ai && (
+            <div className="rounded-xl bg-chanv-fibre/60 px-4 py-6 text-sm text-chanv-terre/70">
+              L&apos;IA lit les tendances et le contenu des campagnes sous-performantes. Quelques
+              secondes…
+            </div>
+          )}
+
+          {ai && !aiLoading && (
+            <div className="space-y-5 mt-1">
+              {ai.summary ? (
+                <p className="text-sm text-chanv-terre/80 leading-relaxed">{ai.summary}</p>
+              ) : (
+                <p className="text-sm text-chanv-terre/50">
+                  Synthèse IA indisponible (clé Anthropic absente). Les campagnes ci-dessous sont
+                  celles repérées sous la moyenne pondérée d&apos;ouverture (
+                  {fmtPct(ai.meta.weightedMeanOpenRate)}).
+                </p>
+              )}
+
+              {ai.insights.length > 0 && (
+                <ul className="space-y-1.5">
+                  {ai.insights.map((it, i) => (
+                    <li key={i} className="text-sm text-chanv-terre/80 flex gap-2">
+                      <span className="text-chanv-mousse">•</span>
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {ai.diagnostics.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-bold text-chanv-terre/80">
+                    Campagnes sous-performantes ({ai.diagnostics.length})
+                  </h4>
+                  {ai.diagnostics.map((d, i) => (
+                    <div key={i} className="rounded-xl border border-black/10 bg-white/40 p-4">
+                      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                        <p className="font-semibold text-sm">{d.campaign}</p>
+                        <span className="text-xs font-medium text-chanv-cuivre">
+                          {fmtPct(d.opened)} d&apos;ouverture
+                        </span>
+                      </div>
+                      {d.subject && (
+                        <p className="text-xs text-chanv-terre/50 mt-0.5">Objet : {d.subject}</p>
+                      )}
+                      {d.why && (
+                        <p className="text-sm text-chanv-terre/80 mt-2">
+                          <span className="font-medium">Pourquoi : </span>
+                          {d.why}
+                        </p>
+                      )}
+                      {d.recommandations.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {d.recommandations.map((r, j) => (
+                            <li key={j} className="text-sm text-chanv-terre/75 flex gap-2">
+                              <span className="text-chanv-mousse">→</span>
+                              <span>{r}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-[11px] text-chanv-terre/40">
+                Généré le {fmtDateTime(ai.meta.generatedAt)} · {ai.meta.model} · analyse marketing,
+                aucune allégation santé.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Croissance des abonnés */}
       <div className="section-card">
