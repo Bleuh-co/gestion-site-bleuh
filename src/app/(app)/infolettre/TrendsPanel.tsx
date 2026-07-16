@@ -51,6 +51,43 @@ interface AnalyseResponse {
   };
 }
 
+type AlertSeverity = "info" | "warning" | "critical";
+interface AlertItem {
+  id: string;
+  type: string;
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+  metric?: Record<string, number | string>;
+}
+interface AlertsResponse {
+  alerts: AlertItem[];
+  generatedAt: string;
+  hasData: boolean;
+}
+
+// Pastilles de sévérité (couleurs sobres, cohérentes avec la charte).
+const SEVERITY_STYLE: Record<
+  AlertSeverity,
+  { dot: string; card: string; label: string }
+> = {
+  critical: {
+    dot: "bg-rose-500",
+    card: "border-rose-200 bg-rose-50",
+    label: "Critique",
+  },
+  warning: {
+    dot: "bg-amber-500",
+    card: "border-amber-200 bg-amber-50",
+    label: "Attention",
+  },
+  info: {
+    dot: "bg-sky-500",
+    card: "border-sky-200 bg-sky-50",
+    label: "Info",
+  },
+};
+
 const COLOR = {
   total: "#282828",
   active: "#8A7648",
@@ -96,6 +133,89 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) 
     <div className="mb-3">
       <h3 className="font-bold">{title}</h3>
       <p className="text-sm text-chanv-terre/55">{subtitle}</p>
+    </div>
+  );
+}
+
+// Bandeau « Alertes » — en tête de l'onglet Tendances.
+function AlertsBanner() {
+  const [alerts, setAlerts] = useState<AlertsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/infolettre/alerts", { cache: "no-store" });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        if (alive) setAlerts((await res.json()) as AlertsResponse);
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : "Alertes indisponibles.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-black/10 bg-white/40 px-4 py-3 text-sm text-chanv-terre/50">
+        Vérification des alertes…
+      </div>
+    );
+  }
+  // Erreur silencieuse : on ne bloque pas les tendances pour un bandeau annexe.
+  if (error || !alerts) return null;
+
+  const { alerts: list, hasData } = alerts;
+
+  return (
+    <div className="section-card">
+      <SectionTitle
+        title="Alertes"
+        subtitle="Ce qui mérite votre attention en priorité, calculé à partir des données réelles."
+      />
+      {list.length > 0 ? (
+        <div className="space-y-2">
+          {list.map((a) => {
+            const s = SEVERITY_STYLE[a.severity];
+            return (
+              <div
+                key={a.id}
+                className={`flex items-start gap-3 rounded-xl border ${s.card} px-4 py-3`}
+              >
+                <span
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${s.dot}`}
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-chanv-terre/90">
+                    <span className="sr-only">{s.label} : </span>
+                    {a.title}
+                  </p>
+                  <p className="text-sm text-chanv-terre/70">{a.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : !hasData ? (
+        <p className="text-sm text-chanv-terre/50">
+          Pas encore assez de données pour émettre des alertes — elles
+          apparaîtront dès les premières captures.
+        </p>
+      ) : (
+        <p className="text-sm text-chanv-terre/50">
+          Aucune alerte — tout est dans les normes.
+        </p>
+      )}
     </div>
   );
 }
@@ -202,6 +322,9 @@ export function TrendsPanel({ canWrite = false }: { canWrite?: boolean }) {
 
   return (
     <div className="space-y-6">
+      {/* Bandeau Alertes — en tête, autonome (fetch propre). */}
+      <AlertsBanner />
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-chanv-terre/60 max-w-xl">
           Les chiffres qui parlent : santé de la liste dans le temps et performance des campagnes
