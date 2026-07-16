@@ -41,11 +41,19 @@ export interface AccountInfo {
   subscriberCount: number;
 }
 
+/** Compteurs compte (GET /stats) — tous statuts confondus. */
+export interface AccountStats {
+  subscribed: number;
+  unsubscribed: number;
+  total: number;
+}
+
 export interface BleuhMailerLiteClient {
   readonly id: string;
   readonly label: string;
   readonly apiType: "classic";
   getAccountInfo(): Promise<AccountInfo>;
+  getAccountStats(): Promise<AccountStats>;
   getSubscribers(opts: {
     cursor?: string | null;
     limit?: number;
@@ -146,6 +154,15 @@ class ClassicV2Client implements BleuhMailerLiteClient {
       email: account.email || account.from || "",
       subscriberCount,
     };
+  }
+
+  async getAccountStats(): Promise<AccountStats> {
+    const res = await fetchWithRetry(`${this.baseUrl}/stats`, { headers: this.headers() });
+    if (!res.ok) throw new Error(`ML Classic /stats: ${res.status}`);
+    const stats = await res.json();
+    const subscribed = Number(stats.subscribed) || 0;
+    const unsubscribed = Number(stats.unsubscribed) || 0;
+    return { subscribed, unsubscribed, total: subscribed + unsubscribed };
   }
 
   async getSubscribers(opts: {
@@ -279,6 +296,12 @@ class MockClient implements BleuhMailerLiteClient {
 
   async getAccountInfo(): Promise<AccountInfo> {
     return { name: "Bleuh (mock)", email: "mock@bleuh.co", subscriberCount: this.subs.length };
+  }
+
+  async getAccountStats(): Promise<AccountStats> {
+    const unsubscribed = this.subs.filter((s) => s.status === "unsubscribed").length;
+    const subscribed = this.subs.length - unsubscribed;
+    return { subscribed, unsubscribed, total: this.subs.length };
   }
 
   async getSubscribers(opts: {
