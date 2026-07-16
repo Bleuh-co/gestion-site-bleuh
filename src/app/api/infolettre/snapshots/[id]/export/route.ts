@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRead } from "@/lib/auth-server";
+import { requireWrite } from "@/lib/auth-server";
 import { handleError } from "@/lib/products-service";
 import { adminDb } from "@/lib/firebase-admin";
 import { loadSubscribersFromGCS } from "@/lib/infolettre-storage";
@@ -21,13 +21,14 @@ function escapeCsv(value: string): string {
 }
 
 // GET /api/infolettre/snapshots/[id]/export?format=csv|json&fields=&status=
-// Exige un snapshot terminé (done), sinon 409. requireRead.
+// Exige un snapshot terminé (done), sinon 409. requireWrite : l'export est un
+// dump PII complet (courriels des abonnés) → réservé Gestionnaire+ (comme l'app source).
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRead();
+    await requireWrite();
     const { id } = await ctx.params;
     const sp = req.nextUrl.searchParams;
     const format = (sp.get("format") || "csv") as ExportFormat;

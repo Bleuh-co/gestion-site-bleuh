@@ -501,7 +501,7 @@ function SnapshotDetail({
           )}
 
           <div className="flex flex-wrap gap-3 mb-6">
-            {snap.status === "done" && (
+            {snap.status === "done" && canWrite && (
               <>
                 <a
                   className="btn-secondary"
