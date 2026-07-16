@@ -130,10 +130,26 @@ export interface CatalogPresenceNonInstrumente {
 
 export type CatalogPresence = CatalogPresenceOk | CatalogPresenceNonInstrumente;
 
+export interface SiteTrafficOk {
+  status: "ok";
+  pageViews: number;
+  sessions: number;
+  retailerClicks: number;
+  productViews: number;
+  filterUses: number;
+}
+
+export interface SiteTrafficEnAttente {
+  status: "en_attente";
+}
+
+export type SiteTraffic = SiteTrafficOk | SiteTrafficEnAttente;
+
 export interface CeoSources {
   ga4: Ga4Traffic;
   ga4Events: Ga4Events;
   catalogue: CatalogPresence;
+  siteTraffic: SiteTraffic;
 }
 
 export interface CeoAnalysisResult {
@@ -258,10 +274,16 @@ Règles strictes :
 - N'établis JAMAIS de lien de causalité entre le volume de chat et le trafic ou les clics détaillants : ces données ne sont pas connectées entre elles dans ce module.
 - Le signal « catalogue » (SKUs en marché, collections, provinces) est une donnée réelle distincte, lue directement dans le catalogue produits. Tu peux la citer telle quelle comme un fait, mais sans lui inventer de lien causal avec le volume de chat.
 - Le signal « clics détaillants » (select_retailer / view_item), quand fourni, est la conversion réelle du site vitrine : tu peux le citer comme fait.
+- Le signal « trafficSite » (pagesVues, sessions, clicsDetaillants, vuesFicheProduit), quand fourni avec un statut différent de "en_attente", est une mesure première-partie réelle du site (pas GA4, pas une estimation) : tu peux la citer comme fait.
 - Si les métriques suggèrent des sujets récurrents ou toute observation qui n'est pas un chiffre compté directement, qualifie-la explicitement d'estimation.
 - Réponds en français, en 3 à 5 puces courtes et factuelles (une ligne chacune, préfixée par "- "), sans préambule ni conclusion.`;
 
-async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence, ga4Events: Ga4Events): Promise<string | null> {
+async function callAiSummary(
+  kpis: CeoKpis,
+  catalogue: CatalogPresence,
+  ga4Events: Ga4Events,
+  siteTraffic: SiteTraffic
+): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -292,6 +314,15 @@ async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence, ga4Event
         ga4Events.status === "ok"
           ? { selectRetailer: ga4Events.selectRetailer, viewItem: ga4Events.viewItem }
           : "non_instrumente",
+      trafficSite:
+        siteTraffic.status === "ok"
+          ? {
+              pagesVues: siteTraffic.pageViews,
+              sessions: siteTraffic.sessions,
+              clicsDetaillants: siteTraffic.retailerClicks,
+              vuesFicheProduit: siteTraffic.productViews,
+            }
+          : "en_attente (aucune visite enregistrée sur la période)",
     };
 
     const response = await client.messages.create({
@@ -439,20 +470,70 @@ export async function getCatalogPresence(): Promise<CatalogPresence> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Trafic site premier-partie — collection Firestore `site_traffic`, écrite
+// par SiteBleuh lui-même (doc par jour `day_YYYY-MM-DD` UTC, champs
+// incrémentés via FieldValue.increment : pageViews, sessions,
+// events.{select_retailer,view_item,filter_region,filter_collection,
+// open_support}). Le CEO tourne dans le même projet GCP que le site
+// (antigravity en prod / gandalf-dev en dev) → adminDb() lit le MÊME
+// Firestore, aucune config cross-projet. Même pattern de liste de dates que
+// getInteractionsAndCost (lectures par id connu, jamais de `where`).
+// Aucun doc trouvé sur la fenêtre → { status: 'en_attente' } (la source est
+// branchée, elle attend juste les premières visites), jamais 'non_instrumente'
+// et jamais de throw.
+// ─────────────────────────────────────────────────────────────
+
+export async function getSiteTraffic(days: number): Promise<SiteTraffic> {
+  const dates = lastNDaysUtc(days);
+  const col = adminDb().collection("site_traffic");
+
+  try {
+    const snaps = await Promise.all(dates.map((date) => col.doc(`day_${date}`).get()));
+
+    let found = false;
+    let pageViews = 0;
+    let sessions = 0;
+    let retailerClicks = 0;
+    let productViews = 0;
+    let filterUses = 0;
+
+    for (const snap of snaps) {
+      if (!snap.exists) continue;
+      found = true;
+      const data = snap.data() || {};
+      pageViews += Number(data.pageViews) || 0;
+      sessions += Number(data.sessions) || 0;
+      const events = (data.events && typeof data.events === "object" ? data.events : {}) as Record<string, unknown>;
+      retailerClicks += Number(events.select_retailer) || 0;
+      productViews += Number(events.view_item) || 0;
+      filterUses += (Number(events.filter_region) || 0) + (Number(events.filter_collection) || 0);
+    }
+
+    if (!found) return { status: "en_attente" };
+
+    return { status: "ok", pageViews, sessions, retailerClicks, productViews, filterUses };
+  } catch (e) {
+    console.warn("[ceo-analysis] lecture site_traffic échouée :", e);
+    return { status: "en_attente" };
+  }
+}
+
 export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const [ga4, ga4Events, catalogue] = await Promise.all([
+  const [ga4, ga4Events, catalogue, siteTraffic] = await Promise.all([
     getGa4Traffic(kpis.days),
     getGa4Events(kpis.days),
     getCatalogPresence(),
+    getSiteTraffic(kpis.days),
   ]);
-  const aiSummary = await callAiSummary(kpis, catalogue, ga4Events);
+  const aiSummary = await callAiSummary(kpis, catalogue, ga4Events, siteTraffic);
 
   return {
     generatedAt: new Date().toISOString(),
     period,
     kpis,
-    sources: { ga4, ga4Events, catalogue },
+    sources: { ga4, ga4Events, catalogue, siteTraffic },
     aiSummary,
   };
 }
@@ -471,6 +552,7 @@ Règles strictes :
 - INTERDICTION ABSOLUE d'employer ou de suggérer les mots « ventes », « revenus », « chiffre d'affaires », « sell-through » ou toute notion équivalente : ce module ne les mesure pas et le site ne vend pas directement.
 - Le signal « catalogue » (SKUs en marché, collections, provinces), s'il est fourni, est une donnée réelle distincte lue dans le catalogue produits : tu peux la citer comme fait mais sans lui inventer de lien causal avec le volume de chat.
 - Le signal « clics détaillants » (select_retailer / view_item), s'il est fourni, est la conversion réelle du site vitrine : tu peux le citer comme fait et t'en servir pour tes recommandations, sans lien de causalité inventé avec le volume de chat.
+- Le signal « trafficSite » (pagesVues, sessions, clicsDetaillants, vuesFicheProduit), quand fourni avec un statut différent de "en_attente", est une mesure première-partie réelle du site (pas GA4, pas une estimation) : tu peux la citer comme fait et t'en servir pour tes recommandations.
 - N'énonce JAMAIS d'allégation de santé (produits liés au cannabis/chanvre) — reste strictement sur l'usage du service de support et les indicateurs opérationnels du site.
 - Produis entre 5 et 8 insights stratégiques, chacun avec une recommandation concrète et actionnable.
 - Qualifie explicitement d'estimation toute observation qui n'est pas un chiffre compté directement (ex. coût IA, tendances).
@@ -491,7 +573,11 @@ export interface DeepAnalysisResult {
  */
 export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const [catalogue, ga4Events] = await Promise.all([getCatalogPresence(), getGa4Events(kpis.days)]);
+  const [catalogue, ga4Events, siteTraffic] = await Promise.all([
+    getCatalogPresence(),
+    getGa4Events(kpis.days),
+    getSiteTraffic(kpis.days),
+  ]);
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   let insights: string | null = null;
@@ -525,6 +611,15 @@ export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysi
           ga4Events.status === "ok"
             ? { selectRetailer: ga4Events.selectRetailer, viewItem: ga4Events.viewItem }
             : "non_instrumente",
+        trafficSite:
+          siteTraffic.status === "ok"
+            ? {
+                pagesVues: siteTraffic.pageViews,
+                sessions: siteTraffic.sessions,
+                clicsDetaillants: siteTraffic.retailerClicks,
+                vuesFicheProduit: siteTraffic.productViews,
+              }
+            : "en_attente (aucune visite enregistrée sur la période)",
       };
 
       const response = await client.messages.create({

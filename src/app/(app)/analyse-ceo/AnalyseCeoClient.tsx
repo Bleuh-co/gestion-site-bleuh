@@ -34,11 +34,22 @@ type CatalogPresence =
   | { status: "ok"; skus: number; collections: number; provinces: string[] }
   | { status: "non_instrumente" };
 
+type SiteTraffic =
+  | {
+      status: "ok";
+      pageViews: number;
+      sessions: number;
+      retailerClicks: number;
+      productViews: number;
+      filterUses: number;
+    }
+  | { status: "en_attente" };
+
 interface CeoAnalysisResult {
   generatedAt: string;
   period: Period;
   kpis: CeoKpis;
-  sources: { ga4: Ga4Traffic; ga4Events: Ga4Events; catalogue: CatalogPresence };
+  sources: { ga4: Ga4Traffic; ga4Events: Ga4Events; catalogue: CatalogPresence; siteTraffic: SiteTraffic };
   aiSummary: string | null;
 }
 
@@ -242,48 +253,43 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
         <h2 className="text-lg font-semibold mb-1">Signaux du site</h2>
         <p className="text-sm text-chanv-terre/70 mb-3">
           Le catalogue est lu en direct depuis Firestore. Bleuh.co est un site vitrine, pas un site de vente : le
-          trafic et les clics vers les détaillants viennent de GA4 quand c&apos;est câblé — aucun chiffre
-          n&apos;est simulé à leur place.
+          trafic et les clics vers les détaillants viennent de la mesure première-partie du site (collection
+          site_traffic) — aucun chiffre n&apos;est simulé à leur place.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Fréquentation (GA4)</p>
-              {data?.sources.ga4.status === "ok" ? (
+              <p className="font-semibold text-sm">Fréquentation du site</p>
+              {data?.sources.siteTraffic.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
-                  {nombreFmt.format(data.sources.ga4.sessions)} sessions ·{" "}
-                  {nombreFmt.format(data.sources.ga4.activeUsers)} utilisateurs actifs ·{" "}
-                  {nombreFmt.format(data.sources.ga4.screenPageViews)} pages vues
+                  {nombreFmt.format(data.sources.siteTraffic.pageViews)} pages vues ·{" "}
+                  {nombreFmt.format(data.sources.siteTraffic.sessions)} sessions
                 </p>
               ) : (
-                <p className="text-xs text-chanv-terre/60">
-                  Google Analytics 4 n&apos;est pas encore câblé sur SiteBleuh.
-                </p>
+                <p className="text-xs text-chanv-terre/60">En attente des premières visites.</p>
               )}
             </div>
             <span className="badge-neutral">
-              {data?.sources.ga4.status === "ok" ? "Live" : "Non instrumenté"}
+              {data?.sources.siteTraffic.status === "ok" ? "Live" : "En attente"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
               <p className="font-semibold text-sm">Clics vers détaillants (SQDC/OCS)</p>
-              {data?.sources.ga4Events.status === "ok" ? (
+              {data?.sources.siteTraffic.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
-                  {nombreFmt.format(data.sources.ga4Events.selectRetailer)} clic(s) détaillant ·{" "}
-                  {nombreFmt.format(data.sources.ga4Events.viewItem)} vue(s) fiche produit
+                  {nombreFmt.format(data.sources.siteTraffic.retailerClicks)} clic(s) détaillant ·{" "}
+                  {nombreFmt.format(data.sources.siteTraffic.productViews)} vue(s) fiche produit
                 </p>
               ) : (
-                <p className="text-xs text-chanv-terre/60">
-                  Google Analytics 4 n&apos;est pas encore câblé sur SiteBleuh.
-                </p>
+                <p className="text-xs text-chanv-terre/60">En attente des premières visites.</p>
               )}
               <p className="text-xs text-chanv-terre/50 mt-1">
                 Le site ne vend pas directement — la conversion se mesure au clic vers SQDC/OCS.
               </p>
             </div>
             <span className="badge-neutral">
-              {data?.sources.ga4Events.status === "ok" ? "Live" : "Non instrumenté"}
+              {data?.sources.siteTraffic.status === "ok" ? "Live" : "En attente"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
