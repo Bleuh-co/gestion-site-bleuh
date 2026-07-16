@@ -26,6 +26,10 @@ type Ga4Traffic =
   | { status: "ok"; sessions: number; activeUsers: number; screenPageViews: number }
   | { status: "non_instrumente" };
 
+type Ga4Events =
+  | { status: "ok"; selectRetailer: number; viewItem: number }
+  | { status: "non_instrumente" };
+
 type CatalogPresence =
   | { status: "ok"; skus: number; collections: number; provinces: string[] }
   | { status: "non_instrumente" };
@@ -34,7 +38,7 @@ interface CeoAnalysisResult {
   generatedAt: string;
   period: Period;
   kpis: CeoKpis;
-  sources: { ga4: Ga4Traffic; ventes: "non_instrumente"; catalogue: CatalogPresence };
+  sources: { ga4: Ga4Traffic; ga4Events: Ga4Events; catalogue: CatalogPresence };
   aiSummary: string | null;
 }
 
@@ -235,15 +239,16 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
       )}
 
       <section className="card p-4">
-        <h2 className="text-lg font-semibold mb-1">Sources commerciales</h2>
+        <h2 className="text-lg font-semibold mb-1">Signaux du site</h2>
         <p className="text-sm text-chanv-terre/70 mb-3">
-          Le catalogue est lu en direct depuis Firestore. Le trafic et les ventes restent à instrumenter — aucun
-          chiffre n&apos;est simulé à leur place.
+          Le catalogue est lu en direct depuis Firestore. Bleuh.co est un site vitrine, pas un site de vente : le
+          trafic et les clics vers les détaillants viennent de GA4 quand c&apos;est câblé — aucun chiffre
+          n&apos;est simulé à leur place.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Trafic / clics (GA4)</p>
+              <p className="font-semibold text-sm">Fréquentation (GA4)</p>
               {data?.sources.ga4.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
                   {nombreFmt.format(data.sources.ga4.sessions)} sessions ·{" "}
@@ -258,6 +263,27 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
             </div>
             <span className="badge-neutral">
               {data?.sources.ga4.status === "ok" ? "Live" : "Non instrumenté"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
+            <div>
+              <p className="font-semibold text-sm">Clics vers détaillants (SQDC/OCS)</p>
+              {data?.sources.ga4Events.status === "ok" ? (
+                <p className="text-xs text-chanv-terre/60">
+                  {nombreFmt.format(data.sources.ga4Events.selectRetailer)} clic(s) détaillant ·{" "}
+                  {nombreFmt.format(data.sources.ga4Events.viewItem)} vue(s) fiche produit
+                </p>
+              ) : (
+                <p className="text-xs text-chanv-terre/60">
+                  Google Analytics 4 n&apos;est pas encore câblé sur SiteBleuh.
+                </p>
+              )}
+              <p className="text-xs text-chanv-terre/50 mt-1">
+                Le site ne vend pas directement — la conversion se mesure au clic vers SQDC/OCS.
+              </p>
+            </div>
+            <span className="badge-neutral">
+              {data?.sources.ga4Events.status === "ok" ? "Live" : "Non instrumenté"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
@@ -280,15 +306,6 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
             <span className="badge-neutral">
               {data?.sources.catalogue.status === "ok" ? "Live" : "Non instrumenté"}
             </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
-            <div>
-              <p className="font-semibold text-sm">Ventes (unités vendues)</p>
-              <p className="text-xs text-chanv-terre/60">
-                En attente d&apos;un flux sell-through (rapport fournisseur SQDC / POS).
-              </p>
-            </div>
-            <span className="badge-neutral">Non instrumenté</span>
           </div>
         </div>
       </section>

@@ -103,6 +103,20 @@ export interface Ga4TrafficNonInstrumente {
 
 export type Ga4Traffic = Ga4TrafficOk | Ga4TrafficNonInstrumente;
 
+export interface Ga4EventsOk {
+  status: "ok";
+  /** Clics vers un détaillant (SQDC/OCS) — LA conversion du site vitrine. */
+  selectRetailer: number;
+  /** Vues de fiches produit, si l'événement simple `view_item` est câblé. */
+  viewItem: number;
+}
+
+export interface Ga4EventsNonInstrumente {
+  status: "non_instrumente";
+}
+
+export type Ga4Events = Ga4EventsOk | Ga4EventsNonInstrumente;
+
 export interface CatalogPresenceOk {
   status: "ok";
   skus: number;
@@ -118,7 +132,7 @@ export type CatalogPresence = CatalogPresenceOk | CatalogPresenceNonInstrumente;
 
 export interface CeoSources {
   ga4: Ga4Traffic;
-  ventes: "non_instrumente";
+  ga4Events: Ga4Events;
   catalogue: CatalogPresence;
 }
 
@@ -236,15 +250,18 @@ export async function buildCeoKpis(period: CeoPeriod): Promise<CeoKpis> {
 // consigne système contraignant le modèle à ne commenter que ces métriques.
 // ─────────────────────────────────────────────────────────────
 
-const AI_SYSTEM_PROMPT = `Tu es un analyste qui résume des indicateurs internes d'un chatbot support (Bleuh) pour un CEO.
+const AI_SYSTEM_PROMPT = `Tu es un analyste qui résume des indicateurs internes pour le CEO de Bleuh.
+Contexte métier impératif : bleuh.co est un site VITRINE/catalogue, PAS un site de vente. Bleuh vend en gros aux détaillants provinciaux (SQDC au Québec, OCS en Ontario) ; le site sert à faire découvrir les produits et à rediriger l'acheteur vers ces détaillants. Le signal de conversion du site est le CLIC vers un détaillant (événement GA4 select_retailer) — il n'existe aucune notion de vente, revenu ou chiffre d'affaires directement sur le site.
 Règles strictes :
 - Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre.
-- N'établis JAMAIS de lien entre le volume de chat et des ventes, un trafic ou une conversion : ces données ne sont pas connectées à ce module.
+- INTERDICTION ABSOLUE d'employer ou de suggérer les mots « ventes », « revenus », « chiffre d'affaires », « sell-through » ou toute notion équivalente : ce module ne les mesure pas et ne doit jamais laisser croire que le site vend directement.
+- N'établis JAMAIS de lien de causalité entre le volume de chat et le trafic ou les clics détaillants : ces données ne sont pas connectées entre elles dans ce module.
 - Le signal « catalogue » (SKUs en marché, collections, provinces) est une donnée réelle distincte, lue directement dans le catalogue produits. Tu peux la citer telle quelle comme un fait, mais sans lui inventer de lien causal avec le volume de chat.
+- Le signal « clics détaillants » (select_retailer / view_item), quand fourni, est la conversion réelle du site vitrine : tu peux le citer comme fait.
 - Si les métriques suggèrent des sujets récurrents ou toute observation qui n'est pas un chiffre compté directement, qualifie-la explicitement d'estimation.
 - Réponds en français, en 3 à 5 puces courtes et factuelles (une ligne chacune, préfixée par "- "), sans préambule ni conclusion.`;
 
-async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence): Promise<string | null> {
+async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence, ga4Events: Ga4Events): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -270,6 +287,10 @@ async function callAiSummary(kpis: CeoKpis, catalogue: CatalogPresence): Promise
               collectionsDistinctes: catalogue.collections,
               provincesCouvertes: catalogue.provinces,
             }
+          : "non_instrumente",
+      clicsDetaillants:
+        ga4Events.status === "ok"
+          ? { selectRetailer: ga4Events.selectRetailer, viewItem: ga4Events.viewItem }
           : "non_instrumente",
     };
 
@@ -337,6 +358,48 @@ export async function getGa4Traffic(days: number): Promise<Ga4Traffic> {
   }
 }
 
+/**
+ * Comptage d'événements GA4 par nom (runReport, dimension `eventName`,
+ * métrique `eventCount`) sur les N derniers jours. Le site étant une
+ * VITRINE non transactionnelle (Bleuh vend via SQDC/OCS), le signal de
+ * conversion réel est le clic vers un détaillant (`select_retailer`) — pas
+ * une vente. `view_item` (vues de fiche produit) est remonté en complément
+ * quand disponible. Même dégradation propre que getGa4Traffic : pas de
+ * GA4_PROPERTY_ID ou appel qui échoue → { status: 'non_instrumente' }.
+ */
+export async function getGa4Events(days: number): Promise<Ga4Events> {
+  const propertyId = process.env.GA4_PROPERTY_ID;
+  if (!propertyId || !propertyId.trim()) {
+    return { status: "non_instrumente" };
+  }
+
+  try {
+    const { BetaAnalyticsDataClient } = await import("@google-analytics/data");
+    const client = new BetaAnalyticsDataClient();
+
+    const [response] = await client.runReport({
+      property: `properties/${propertyId.trim()}`,
+      dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "eventCount" }],
+    });
+
+    let selectRetailer = 0;
+    let viewItem = 0;
+    for (const row of response.rows ?? []) {
+      const name = row.dimensionValues?.[0]?.value;
+      const count = Number(row.metricValues?.[0]?.value) || 0;
+      if (name === "select_retailer") selectRetailer = count;
+      if (name === "view_item") viewItem = count;
+    }
+
+    return { status: "ok", selectRetailer, viewItem };
+  } catch (e) {
+    console.warn("[ceo-analysis] lecture GA4 (événements) échouée (SA sans accès à la propriété ?) :", e);
+    return { status: "non_instrumente" };
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Présence catalogue — signal commercial RÉEL, lu directement dans la
 // collection Firestore `products` (même base que products-service, réutilise
@@ -378,14 +441,18 @@ export async function getCatalogPresence(): Promise<CatalogPresence> {
 
 export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const [ga4, catalogue] = await Promise.all([getGa4Traffic(kpis.days), getCatalogPresence()]);
-  const aiSummary = await callAiSummary(kpis, catalogue);
+  const [ga4, ga4Events, catalogue] = await Promise.all([
+    getGa4Traffic(kpis.days),
+    getGa4Events(kpis.days),
+    getCatalogPresence(),
+  ]);
+  const aiSummary = await callAiSummary(kpis, catalogue, ga4Events);
 
   return {
     generatedAt: new Date().toISOString(),
     period,
     kpis,
-    sources: { ga4, ventes: "non_instrumente", catalogue },
+    sources: { ga4, ga4Events, catalogue },
     aiSummary,
   };
 }
@@ -397,11 +464,14 @@ export async function buildCeoAnalysis(period: CeoPeriod): Promise<CeoAnalysisRe
 // d'allégation santé) : mêmes garde-fous que AI_SYSTEM_PROMPT, renforcés.
 // ─────────────────────────────────────────────────────────────
 
-const DEEP_ANALYSIS_SYSTEM_PROMPT = `Tu es un analyste senior qui produit une analyse stratégique approfondie des indicateurs internes d'un chatbot support (Bleuh) pour un CEO.
+const DEEP_ANALYSIS_SYSTEM_PROMPT = `Tu es un analyste senior qui produit une analyse stratégique approfondie des indicateurs internes de Bleuh pour un CEO.
+Contexte métier impératif : bleuh.co est un site VITRINE/catalogue, PAS un site de vente. Bleuh vend en gros aux détaillants provinciaux (SQDC au Québec, OCS en Ontario) ; le site sert à faire découvrir les produits et à rediriger l'acheteur vers ces détaillants. Les KPIs pertinents sont donc : la fréquentation et l'engagement du site, les clics vers les détaillants (événement GA4 select_retailer — LA conversion réelle du site), la présence catalogue, et la performance du bot support.
 Règles strictes :
-- Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre, aucune donnée externe (pas de trafic, pas de ventes : ces sources ne sont pas connectées à ce module sauf si explicitement fournies).
+- Ne commente QUE les métriques fournies dans le message utilisateur. N'invente aucun chiffre, aucune donnée externe.
+- INTERDICTION ABSOLUE d'employer ou de suggérer les mots « ventes », « revenus », « chiffre d'affaires », « sell-through » ou toute notion équivalente : ce module ne les mesure pas et le site ne vend pas directement.
 - Le signal « catalogue » (SKUs en marché, collections, provinces), s'il est fourni, est une donnée réelle distincte lue dans le catalogue produits : tu peux la citer comme fait mais sans lui inventer de lien causal avec le volume de chat.
-- N'énonce JAMAIS d'allégation de santé (produits liés au cannabis/chanvre) — reste strictement sur l'usage du service de support et les indicateurs opérationnels.
+- Le signal « clics détaillants » (select_retailer / view_item), s'il est fourni, est la conversion réelle du site vitrine : tu peux le citer comme fait et t'en servir pour tes recommandations, sans lien de causalité inventé avec le volume de chat.
+- N'énonce JAMAIS d'allégation de santé (produits liés au cannabis/chanvre) — reste strictement sur l'usage du service de support et les indicateurs opérationnels du site.
 - Produis entre 5 et 8 insights stratégiques, chacun avec une recommandation concrète et actionnable.
 - Qualifie explicitement d'estimation toute observation qui n'est pas un chiffre compté directement (ex. coût IA, tendances).
 - Réponds en français, format : une puce "- " par insight, chaque puce contenant l'observation suivie de « → Recommandation : ... ». Sans préambule ni conclusion.`;
@@ -421,7 +491,7 @@ export interface DeepAnalysisResult {
  */
 export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysisResult> {
   const kpis = await buildCeoKpis(period);
-  const catalogue = await getCatalogPresence();
+  const [catalogue, ga4Events] = await Promise.all([getCatalogPresence(), getGa4Events(kpis.days)]);
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   let insights: string | null = null;
@@ -450,6 +520,10 @@ export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysi
                 collectionsDistinctes: catalogue.collections,
                 provincesCouvertes: catalogue.provinces,
               }
+            : "non_instrumente",
+        clicsDetaillants:
+          ga4Events.status === "ok"
+            ? { selectRetailer: ga4Events.selectRetailer, viewItem: ga4Events.viewItem }
             : "non_instrumente",
       };
 
