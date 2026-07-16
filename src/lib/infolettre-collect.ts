@@ -14,8 +14,6 @@ export const METRICS_COLLECTION = "infolettre_metrics";
 export const CAMPAIGN_STATS_COLLECTION = "infolettre_campaign_stats";
 
 const SLOT_MS = 6 * 60 * 60 * 1000; // créneau d'idempotence : 6h
-const MAX_CAMPAIGNS = 200; // plafond de campagnes récupérées
-const PAGE = 100; // max ML par requête
 const MAX_HISTORY_POINTS = 40; // borne de l'historique par campagne
 
 /**
@@ -61,16 +59,8 @@ export async function collectSnapshot(): Promise<CollectSummary> {
     total: g.total,
   }));
 
-  // ── b. Campagnes envoyées (jusqu'à MAX_CAMPAIGNS) ────────────
-  const campaigns: Campaign[] = [];
-  let offset = 0;
-  while (campaigns.length < MAX_CAMPAIGNS) {
-    const limit = Math.min(PAGE, MAX_CAMPAIGNS - campaigns.length);
-    const res = await client.getCampaigns({ limit, offset });
-    campaigns.push(...res.data);
-    if (!res.hasMore || res.data.length === 0) break;
-    offset = res.nextOffset;
-  }
+  // ── b. Campagnes envoyées (toutes, dédupliquées par id) ──────
+  const campaigns: Campaign[] = await client.getAllSentCampaigns();
 
   const snapshot: MetricsSnapshot = {
     capturedAt,

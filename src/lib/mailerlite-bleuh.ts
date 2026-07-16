@@ -23,7 +23,6 @@ import type {
   MLField,
   SubscriberStatus,
   Campaign,
-  CampaignsResult,
 } from "./infolettre-types";
 
 export const BLEUH_ACCOUNT_ID = "bleuh";
@@ -62,7 +61,15 @@ export interface BleuhMailerLiteClient {
   }): Promise<FetchSubscribersResult>;
   getGroups(): Promise<MLGroup[]>;
   getFields(): Promise<MLField[]>;
-  getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult>;
+  /**
+   * Récupère TOUTES les campagnes envoyées, dédupliquées par id.
+   *
+   * L'API ML Classic v2 renvoie des lignes en double sur `/campaigns?status=sent`
+   * et ignore le paramètre `page` ; seul `offset` décale réellement la fenêtre.
+   * On pagine donc par offset (incrément = nb de lignes reçues) et on
+   * déduplique par campaign id.
+   */
+  getAllSentCampaigns(): Promise<Campaign[]>;
   getMaskedKey(): string;
 }
 
@@ -231,17 +238,32 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     }));
   }
 
-  async getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult> {
-    const limit = Math.min(opts.limit || 100, 100);
-    const offset = opts.offset || 0;
-    const url = `${this.baseUrl}/campaigns?status=sent&limit=${limit}&offset=${offset}`;
-    const res = await fetchWithRetry(url, { headers: this.headers() });
-    if (!res.ok) throw new Error(`ML Classic campaigns: ${res.status}`);
-    const raw = await res.json();
-    const list = Array.isArray(raw) ? raw : [];
-    const data = list.map((c) => mapCampaign(c as Record<string, unknown>));
-    const hasMore = data.length === limit;
-    return { data, hasMore, nextOffset: offset + data.length };
+  async getAllSentCampaigns(): Promise<Campaign[]> {
+    const PAGE = 100; // max ML par requête
+    const MAX_PAGES = 25; // borne de sécurité (~2500 campagnes)
+    const byId = new Map<string, Campaign>();
+    let offset = 0;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const url = `${this.baseUrl}/campaigns?status=sent&limit=${PAGE}&offset=${offset}`;
+      const res = await fetchWithRetry(url, { headers: this.headers() });
+      if (!res.ok) throw new Error(`ML Classic campaigns: ${res.status}`);
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : [];
+
+      // Déduplication par id : la même campagne peut réapparaître dans la page.
+      for (const c of list) {
+        const campaign = mapCampaign(c as Record<string, unknown>);
+        if (!byId.has(campaign.id)) byId.set(campaign.id, campaign);
+      }
+
+      // Page incomplète → dernière page atteinte.
+      if (list.length < PAGE) break;
+      // Incrément par le nb de lignes REÇUES (offset fonctionne, page non).
+      offset += list.length;
+    }
+
+    return Array.from(byId.values());
   }
 
   private mapSubscriber(s: Record<string, unknown>): Subscriber {
@@ -339,8 +361,8 @@ class MockClient implements BleuhMailerLiteClient {
     ];
   }
 
-  async getCampaigns(opts: { limit?: number; offset?: number }): Promise<CampaignsResult> {
-    const all: Campaign[] = Array.from({ length: 6 }, (_, i) => {
+  async getAllSentCampaigns(): Promise<Campaign[]> {
+    return Array.from({ length: 6 }, (_, i) => {
       const recipients = 1000 + i * 250;
       const openCount = Math.round(recipients * (0.3 + i * 0.02));
       const clickCount = Math.round(recipients * (0.04 + i * 0.005));
@@ -358,10 +380,6 @@ class MockClient implements BleuhMailerLiteClient {
         clickRate: Math.round((clickCount / recipients) * 10000) / 100,
       };
     });
-    const limit = Math.min(opts.limit || 100, 100);
-    const offset = opts.offset || 0;
-    const data = all.slice(offset, offset + limit);
-    return { data, hasMore: offset + limit < all.length, nextOffset: offset + data.length };
   }
 
   getMaskedKey(): string {
