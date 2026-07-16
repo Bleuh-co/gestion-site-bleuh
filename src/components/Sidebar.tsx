@@ -91,7 +91,7 @@ export function Sidebar() {
         lang: localStorage.getItem("gandalf_lang") || "fr",
         logoutFn: () => signOut(),
         avatarSelector: "#avatar-burger-btn",
-        appName: "🚀 Gestion Site Bleuh",
+        appName: "🚀 Marketing Bleuh",
         links: getLinks(),
         onLangChange: () => {},
       });

@@ -115,7 +115,7 @@ export default function LoginPage() {
           <div className="bg-chanv-fibre p-5 rounded-chanv shadow-chanv-soft mb-5">
             <Image src="/favicon.svg" alt="Chanv" width={64} height={64} />
           </div>
-          <h1 className="text-2xl font-bold text-chanv-terre">Gestion Site Bleuh</h1>
+          <h1 className="text-2xl font-bold text-chanv-terre">Marketing Bleuh</h1>
           <p className="text-[11px] uppercase tracking-[3px] text-chanv-terre/60 mt-2">
             {t("nav.subtitle")}
           </p>

@@ -14,7 +14,7 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
 export const metadata: Metadata = {
-  title: "Gestion Site Bleuh — Chanv",
+  title: "Marketing Bleuh — Chanv",
   description: "Gestion des produits, outils et contenu du site Bleuh — Groupe Chanv",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Gest. Site Bleuh",
+    title: "Marketing Bleuh",
   },
 };
 

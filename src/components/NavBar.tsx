@@ -86,7 +86,7 @@ export function NavBar() {
           />
         </a>
         <div>
-          <h1 className="text-xl font-bold m-0 leading-tight">Gestion Site Bleuh</h1>
+          <h1 className="text-xl font-bold m-0 leading-tight">Marketing Bleuh</h1>
           <p className="text-[10px] md:text-[11px] uppercase tracking-[3px] opacity-70 mt-1 m-0">
             {t("nav.subtitle")}
           </p>

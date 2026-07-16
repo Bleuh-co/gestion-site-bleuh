@@ -63,7 +63,7 @@ export default async function AidePage() {
       <div className="space-y-6">
         {/* Introduction */}
         <section className="section-card">
-          <h2 className="text-lg font-bold mb-3">Bienvenue sur Gestion Site Bleuh</h2>
+          <h2 className="text-lg font-bold mb-3">Bienvenue sur Marketing Bleuh</h2>
           <p className="mb-4">
             Cette application est la console d&apos;administration du site web Bleuh. C&apos;est
             ici que l&apos;équipe met à jour le catalogue de produits, configure l&apos;assistant
