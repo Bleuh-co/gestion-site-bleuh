@@ -30,6 +30,7 @@ export function NavBar() {
   // plein doit exister ici aussi (et dans la Sidebar).
   const links: { href: string; label: string; icon?: React.ReactNode; show: boolean }[] = [
     { href: "/produits", label: t("nav.produits"), show: isRead },
+    { href: "/infolettre", label: t("nav.infolettre"), show: isRead },
     { href: "/outils", label: t("nav.outils"), show: isRead },
     { href: "/assistant", label: t("nav.assistant"), show: isRead },
     { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isRead },
