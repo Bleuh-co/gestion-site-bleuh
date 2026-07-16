@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,6 +19,14 @@ export function NavBar() {
   const { session } = useAuth();
   const pathname = usePathname();
   const t = useT();
+
+  // Vrai framing : le flag `embedded` du SDK vient du cookie gandalf_embed
+  // COLLANT → une visite embarquée contaminait ensuite le standalone (chrome
+  // d'embed sans header/burger). On décide le chrome par le vrai cadrage iframe.
+  const [framed, setFramed] = useState(embedded);
+  useEffect(() => {
+    setFramed(window.self !== window.top);
+  }, []);
 
   if (!session) return null;
 
@@ -41,7 +50,7 @@ export function NavBar() {
     { href: "/aide", label: t("nav.aide"), show: isRead },
   ];
 
-  if (embedded) {
+  if (framed) {
     // Contrat d'embed Gandalf — nav interne d'embed (modèle Gestion-Parc-It /
     // XeroFacture) : barre claire sticky sur fond parchemin, pastilles blanches
     // arrondies, pastille active or. Le hub fournit logo/titre/profil.

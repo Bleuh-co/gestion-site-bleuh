@@ -89,7 +89,10 @@ const SEVERITY_STYLE: Record<
 };
 
 const COLOR = {
-  total: "#282828",
+  // « total » via variable : #282828 (encre) en clair, or clair en sombre —
+  // un near-black fixe disparaissait sur le fond d'embed sombre. Les autres
+  // séries sont des mi-tons lisibles sur les deux fonds.
+  total: "var(--chart-ink)",
   active: "#8A7648",
   unsub: "#C08457",
   open: "#8A7648",

@@ -41,6 +41,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Résoudre le rôle AVANT de poser le cookie (anti-boucle recette) : un
+  // utilisateur bloqué ne doit JAMAIS recevoir de cookie de session, sinon le
+  // boot silencieux le re-tente en boucle. Le 403 porte { blocked, email } pour
+  // que l'AuthProvider affiche la carte de refus (email + « Essayer un autre
+  // compte ») plutôt qu'un toast répété.
+  const email = decoded.email!;
+  let role: string;
+  try {
+    role = await resolveRole(email);
+  } catch (e: any) {
+    console.error("[session POST] resolveRole failed:", e?.code);
+    return NextResponse.json(
+      { error: "Impossible de résoudre le rôle", detail: e?.message, code: e?.code },
+      { status: 500 }
+    );
+  }
+  if (role === "blocked") {
+    return NextResponse.json(
+      { error: "Accès non autorisé", blocked: true, email },
+      { status: 403 }
+    );
+  }
+
   let cookie: string;
   try {
     cookie = await createSessionCookie(idToken);
@@ -60,35 +83,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cookie set failed", detail: e?.message }, { status: 500 });
   }
 
-  try {
-    const email = decoded.email!;
-    const role = await resolveRole(email);
-    if (role === "blocked") {
-      // Contrat recette : le 403 porte { blocked, email } pour que l'AuthProvider
-      // affiche la carte de refus standard (email + « Essayer un autre compte »)
-      // au lieu d'un toast en boucle.
-      return NextResponse.json(
-        { error: "Accès non autorisé", blocked: true, email },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json({
-      user: {
-        uid: decoded.uid,
-        email,
-        displayName: (decoded.name as string) || null,
-        photoURL: (decoded.picture as string) || null,
-        role,
-      },
-    });
-  } catch (e: any) {
-    console.error("[session POST] resolveRole failed:", e?.code);
-    return NextResponse.json(
-      { error: "Impossible de résoudre le rôle", detail: e?.message, code: e?.code },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    user: {
+      uid: decoded.uid,
+      email,
+      displayName: (decoded.name as string) || null,
+      photoURL: (decoded.picture as string) || null,
+      role,
+    },
+  });
 }
 
 export async function DELETE() {

@@ -88,7 +88,9 @@ async function resolveGestiSiteBleuhAppId(
   const appsSnap = await db.collection("apps").get();
   const match = appsSnap.docs.find((d) => {
     const name = (d.data().name || "").toLowerCase().replace(/\s+/g, "");
-    return name.includes("gestionsitebleuh") || (name.includes("duplication") && name.includes("taches"));
+    // Jeton stable « gestionsitebleuh » (l'env GESTIONSITEBLEUH_APP_ID prime).
+    // Retiré le reliquat copié-collé « duplication/taches ».
+    return name.includes("gestionsitebleuh");
   });
   return { appId: match?.id || "", appName: (match?.data().name as string) || null };
 }

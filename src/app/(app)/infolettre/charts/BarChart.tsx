@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export interface BarDatum {
   label: string;
@@ -30,11 +31,12 @@ export function BarChart({
   yUnit,
 }: BarChartProps) {
   const [hover, setHover] = useState<number | null>(null);
+  const t = useT();
 
   if (data.length === 0) {
     return (
       <div className="text-sm text-chanv-terre/40 py-8 text-center">
-        Aucune donnée à afficher.
+        {t("chart.empty")}
       </div>
     );
   }
@@ -71,7 +73,7 @@ export function BarChart({
               x2={VB_W - PAD.right}
               y1={g.py}
               y2={g.py}
-              stroke="#28282814"
+              style={{ stroke: "var(--chart-grid)" }}
               strokeWidth={1}
             />
             <text
@@ -79,7 +81,7 @@ export function BarChart({
               y={g.py + 3}
               textAnchor="end"
               fontSize={10}
-              fill="#28282866"
+              style={{ fill: "var(--chart-axis)" }}
             >
               {formatValue(g.v)}
               {yUnit ?? ""}
@@ -100,11 +102,10 @@ export function BarChart({
                 width={barW}
                 height={Math.max(bh, 0)}
                 rx={3}
-                fill={color}
                 opacity={hover === null || hover === i ? 1 : 0.55}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
-                style={{ cursor: "pointer" }}
+                style={{ fill: color, cursor: "pointer" }}
               />
               {showLabel && (
                 <text
@@ -112,7 +113,7 @@ export function BarChart({
                   y={height - 24}
                   textAnchor="end"
                   fontSize={10}
-                  fill="#28282866"
+                  style={{ fill: "var(--chart-axis)" }}
                   transform={`rotate(-40 ${bx + barW / 2} ${height - 24})`}
                 >
                   {d.label}

@@ -430,6 +430,29 @@ html.gandalf-dark .text-chanv-terre\/60 {
 html.gandalf-dark .text-chanv-terre\/80 {
   color: rgba(255, 255, 255, 0.8);
 }
+/* Variantes d'opacité omises → gardaient rgb(40 40 40 / .x) (quasi-noir) sur le
+   fond sombre = illisibles. Texte courant très utilisé (/70 ×38, /50 ×16…). */
+html.gandalf-dark .text-chanv-terre\/50 {
+  color: rgba(255, 255, 255, 0.5);
+}
+html.gandalf-dark .text-chanv-terre\/70 {
+  color: rgba(255, 255, 255, 0.7);
+}
+html.gandalf-dark .text-chanv-terre\/90 {
+  color: rgba(255, 255, 255, 0.9);
+}
+/* Couleurs des graphiques SVG inline — pilotées par variable car les attributs
+   fill/stroke des <text>/<line> n'atteignent pas les règles .gandalf-dark. */
+:root {
+  --chart-axis: rgba(40, 40, 40, 0.4);
+  --chart-grid: rgba(40, 40, 40, 0.08);
+  --chart-ink: #282828;
+}
+html.gandalf-dark {
+  --chart-axis: rgba(255, 255, 255, 0.5);
+  --chart-grid: rgba(255, 255, 255, 0.14);
+  --chart-ink: #ddcba4;
+}
 html.gandalf-dark .bg-chanv-fibre,
 html.gandalf-dark .hover\:bg-chanv-fibre:hover {
   background-color: rgba(221, 203, 164, 0.12);

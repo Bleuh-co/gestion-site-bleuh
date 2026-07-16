@@ -68,6 +68,11 @@ export function AssistantConfigForm({
         {loading && <span className="text-sm text-chanv-terre/40">Chargement…</span>}
       </div>
 
+      {/* Champs de config verrouillés en lecture seule pour un consultant —
+          cohérent avec sandbox/selftest ; la publication reste gardée serveur
+          (requireWrite). Le socle légal (lecture) et « Publier » restent hors du
+          fieldset. */}
+      <fieldset disabled={!canWrite} className="space-y-6 min-w-0 border-0 p-0 m-0">
       <div className="card p-4 grid gap-4 sm:grid-cols-2">
         <div className="flex items-center gap-2">
           <input
@@ -243,6 +248,7 @@ export function AssistantConfigForm({
           />
         </div>
       </div>
+      </fieldset>
 
       <div className="card p-4">
         <button

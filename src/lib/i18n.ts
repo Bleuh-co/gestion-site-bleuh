@@ -56,6 +56,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "blocked.title": "Accès non autorisé",
     "blocked.message": "Ce compte n'a pas accès à cette application. Contactez un administrateur pour obtenir un rôle, ou essayez un autre compte.",
     "blocked.retry": "Essayer un autre compte",
+    "chart.empty": "Aucune donnée à afficher.",
 
     // Auth (messages du provider)
     "auth.domainNotAllowed": "Domaine non autorisé. Domaines acceptés : {domains}",
@@ -123,6 +124,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "blocked.title": "Access denied",
     "blocked.message": "This account does not have access to this application. Contact an administrator to be granted a role, or try another account.",
     "blocked.retry": "Try another account",
+    "chart.empty": "No data to display.",
 
     "auth.domainNotAllowed": "Domain not allowed. Accepted domains: {domains}",
     "auth.sessionRefused": "Session refused ({status})",
@@ -184,6 +186,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "blocked.title": "Acceso no autorizado",
     "blocked.message": "Esta cuenta no tiene acceso a esta aplicación. Contacta a un administrador para obtener un rol, o prueba con otra cuenta.",
     "blocked.retry": "Probar con otra cuenta",
+    "chart.empty": "No hay datos para mostrar.",
 
     "auth.domainNotAllowed": "Dominio no autorizado. Dominios aceptados: {domains}",
     "auth.sessionRefused": "Sesión rechazada ({status})",
