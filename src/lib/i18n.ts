@@ -34,6 +34,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Outils",
     "nav.assistant": "Assistant IA",
     "nav.analyseCeo": "Analyse CEO",
+    "nav.seo": "Analyse SEO",
     "nav.audit": "Audit",
     "nav.aide": "Mode d'emploi",
 
@@ -103,6 +104,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Tools",
     "nav.assistant": "AI Assistant",
     "nav.analyseCeo": "CEO Analysis",
+    "nav.seo": "SEO Analysis",
     "nav.audit": "Audit",
     "nav.aide": "User Guide",
 
@@ -163,6 +165,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "nav.outils": "Herramientas",
     "nav.assistant": "Asistente IA",
     "nav.analyseCeo": "Análisis CEO",
+    "nav.seo": "Análisis SEO",
     "nav.audit": "Auditoría",
     "nav.aide": "Guía de uso",
 

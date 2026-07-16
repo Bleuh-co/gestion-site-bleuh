@@ -36,6 +36,7 @@ export function Sidebar() {
     ];
     if (isRead) {
       links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
+      links.push({ label: t("nav.seo"), icon: "🔍", href: "/seo", mobileOnly: true });
     }
     if (isAdmin) {
       links.push({ label: t("nav.audit"), icon: "📋", href: "/audit", mobileOnly: true });
