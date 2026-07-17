@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
 import type { ResultBanner, SelftestReport } from "./assistant-types";
 
 interface AssistantSelftestProps {
@@ -11,22 +12,22 @@ interface AssistantSelftestProps {
 }
 
 export function AssistantSelftest({ report, busy, result, canWrite, onRun }: AssistantSelftestProps) {
+  const t = useT();
   return (
     <div className="space-y-4">
       <div className="card p-4 flex items-center justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm text-chanv-terre/70">
-            Lance la batterie de conformité (~36 appels modèle) contre la configuration en cours d&apos;édition. Coûte un
-            appel modèle par question — usage modéré.
+            {t("assistant.selftestIntro")}
           </p>
           {report && (
             <p className="text-sm font-semibold mt-1">
-              Réussis : {report.passed} — Échecs : {report.failed} — Total : {report.total}
+              {t("assistant.selftestSummary", { passed: report.passed, failed: report.failed, total: report.total })}
             </p>
           )}
         </div>
         <button type="button" className="btn-primary" disabled={!canWrite || busy} onClick={onRun}>
-          {busy ? "Exécution…" : "Lancer la batterie"}
+          {busy ? t("assistant.running") : t("assistant.runBattery")}
         </button>
       </div>
 
@@ -47,9 +48,9 @@ export function AssistantSelftest({ report, busy, result, canWrite, onRun }: Ass
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
-                <th className="px-4 py-2">ID</th>
-                <th className="px-4 py-2">Statut</th>
-                <th className="px-4 py-2">Détail</th>
+                <th className="px-4 py-2">{t("assistant.thId")}</th>
+                <th className="px-4 py-2">{t("assistant.thStatus")}</th>
+                <th className="px-4 py-2">{t("assistant.thDetail")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-chanv-fibre">
@@ -57,7 +58,7 @@ export function AssistantSelftest({ report, busy, result, canWrite, onRun }: Ass
                 <tr key={d.id}>
                   <td className="px-4 py-2 font-mono text-xs">{d.id}</td>
                   <td className="px-4 py-2">
-                    <span className={d.ok ? "badge-accent" : "badge-neutral"}>{d.ok ? "OK" : "Échec"}</span>
+                    <span className={d.ok ? "badge-accent" : "badge-neutral"}>{d.ok ? t("assistant.statusOk") : t("assistant.statusFail")}</span>
                   </td>
                   <td className="px-4 py-2 text-chanv-terre/70">
                     {d.ok ? d.extrait || "" : (d.raisons || []).join(" | ")}

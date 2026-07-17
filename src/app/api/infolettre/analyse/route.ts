@@ -256,7 +256,7 @@ export async function POST() {
 
         const response = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
-          max_tokens: 2048,
+          max_tokens: 4096, // éviter le tronquage du JSON (summary + diagnostics)
           system: SYSTEM_PROMPT,
           messages: [
             {

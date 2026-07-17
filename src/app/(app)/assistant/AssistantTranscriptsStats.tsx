@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { StatsResponse, Transcript } from "./assistant-types";
 import { readApiError } from "./assistant-types";
 
@@ -15,6 +16,7 @@ function fmtDate(v: string | undefined): string {
 }
 
 export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsProps) {
+  const t = useT();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -44,7 +46,7 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
         setTranscripts(transcriptsData);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Erreur de chargement.");
+        if (!cancelled) setError(e instanceof Error ? e.message : t("assistant.loadingError"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -52,7 +54,7 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, t]);
 
   const escalationPct = stats ? ((stats.escalation?.rate || 0) * 100).toFixed(1) : "0.0";
 
@@ -64,20 +66,24 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h3 className="font-semibold">Volume &amp; coût (7 derniers jours)</h3>
-          {loading && <span className="text-sm text-chanv-terre/40">Chargement…</span>}
+          <h3 className="font-semibold">{t("assistant.volumeCostTitle")}</h3>
+          {loading && <span className="text-sm text-chanv-terre/40">{t("assistant.loading")}</span>}
         </div>
         <p className="text-sm text-chanv-terre/70 mb-3">
-          Coût du jour : {(stats?.todayCostUsd ?? 0).toFixed(2)} $ · Taux d&apos;escalade : {stats?.escalation?.escalated ?? 0}/
-          {stats?.escalation?.total ?? 0} ({escalationPct} %)
+          {t("assistant.statsSummary", {
+            cost: (stats?.todayCostUsd ?? 0).toFixed(2),
+            escalated: stats?.escalation?.escalated ?? 0,
+            total: stats?.escalation?.total ?? 0,
+            pct: escalationPct,
+          })}
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Requêtes</th>
-                <th className="px-4 py-2">Coût</th>
+                <th className="px-4 py-2">{t("assistant.thDate")}</th>
+                <th className="px-4 py-2">{t("assistant.thRequests")}</th>
+                <th className="px-4 py-2">{t("assistant.thCost")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-chanv-fibre">
@@ -102,16 +108,16 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
       </div>
 
       <div className="card p-4">
-        <h3 className="font-semibold mb-3">Transcripts récents</h3>
+        <h3 className="font-semibold mb-3">{t("assistant.recentTranscripts")}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Langue</th>
-                <th className="px-4 py-2">Région</th>
-                <th className="px-4 py-2">Issue</th>
-                <th className="px-4 py-2">Messages</th>
+                <th className="px-4 py-2">{t("assistant.thDate")}</th>
+                <th className="px-4 py-2">{t("assistant.languageLabel")}</th>
+                <th className="px-4 py-2">{t("assistant.regionLabel")}</th>
+                <th className="px-4 py-2">{t("assistant.thOutcome")}</th>
+                <th className="px-4 py-2">{t("assistant.thMessages")}</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -119,7 +125,7 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
               {transcripts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-chanv-terre/40">
-                    Aucun transcript.
+                    {t("assistant.noTranscripts")}
                   </td>
                 </tr>
               ) : (
@@ -141,7 +147,7 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
                           className="btn-secondary"
                           onClick={() => setOpenIndex((cur) => (cur === i ? null : i))}
                         >
-                          Voir
+                          {t("assistant.view")}
                         </button>
                       </td>
                     </tr>

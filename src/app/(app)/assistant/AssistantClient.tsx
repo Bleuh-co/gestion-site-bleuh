@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
 import { AssistantConfigForm } from "./AssistantConfigForm";
 import { AssistantSandbox } from "./AssistantSandbox";
@@ -21,14 +22,15 @@ interface AssistantClientProps {
 
 type Tab = "config" | "sandbox" | "selftest" | "data";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "config", label: "Configuration" },
-  { id: "sandbox", label: "Bac à sable" },
-  { id: "selftest", label: "Auto-test" },
-  { id: "data", label: "Transcripts & stats" },
+const TABS: { id: Tab; labelKey: string }[] = [
+  { id: "config", labelKey: "assistant.tabConfig" },
+  { id: "sandbox", labelKey: "assistant.tabSandbox" },
+  { id: "selftest", labelKey: "assistant.tabSelftest" },
+  { id: "data", labelKey: "assistant.tabData" },
 ];
 
 export function AssistantClient({ role }: AssistantClientProps) {
+  const t = useT();
   const canWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
 
   const [tab, setTab] = useState<Tab>("config");
@@ -55,11 +57,11 @@ export function AssistantClient({ role }: AssistantClientProps) {
       setConfig({ ...EMPTY_CONFIG, ...(data.config || {}) });
       setLegalCore(data.legalCore || { fr: "", en: "" });
     } catch (e) {
-      setConfigLoadError(e instanceof Error ? e.message : "Impossible de charger la configuration.");
+      setConfigLoadError(e instanceof Error ? e.message : t("assistant.configLoadError"));
     } finally {
       setConfigLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Chargée une seule fois — les activations d'onglet suivantes ne doivent
   // pas écraser l'édition non publiée en cours (cf. `inited` côté Express/UI).
@@ -78,7 +80,7 @@ export function AssistantClient({ role }: AssistantClientProps) {
         body: "{}",
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || data.message || `Erreur ${res.status}`);
+      if (!res.ok) throw new Error(data.error || data.message || t("assistant.errorStatus", { status: res.status }));
       const report: SelftestReport = {
         passed: data.passed ?? 0,
         failed: data.failed ?? 0,
@@ -88,28 +90,28 @@ export function AssistantClient({ role }: AssistantClientProps) {
       setSelftestReport(report);
       setSelftestResult({
         ok: report.failed === 0,
-        message: report.failed === 0 ? "Tous les tests sont passés." : `${report.failed} test(s) en échec.`,
+        message: report.failed === 0 ? t("assistant.selftestAllPassed") : t("assistant.selftestFailedCount", { n: report.failed }),
       });
       return report;
     } finally {
       setSelftestBusy(false);
     }
-  }, []);
+  }, [t]);
 
   const handleSelftestClick = useCallback(() => {
-    if (!window.confirm("Lancer la batterie de conformité (~36 appels modèle, coûte du budget IA) ?")) return;
+    if (!window.confirm(t("assistant.selftestConfirm"))) return;
     setSelftestResult(null);
     runSelftestCore().catch((e) => {
-      setSelftestResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setSelftestResult({ ok: false, message: e instanceof Error ? e.message : t("assistant.error") });
     });
-  }, [runSelftestCore]);
+  }, [runSelftestCore, t]);
 
   const handleConfigChange = useCallback((patch: Partial<AssistantConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
   }, []);
 
   const handlePublish = useCallback(async () => {
-    if (!window.confirm("Publier cette nouvelle configuration de l'assistant ?")) return;
+    if (!window.confirm(t("assistant.publishConfirm"))) return;
     setPublishBusy(true);
     setPublishResult(null);
     try {
@@ -119,50 +121,50 @@ export function AssistantClient({ role }: AssistantClientProps) {
         body: JSON.stringify({ config }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || data.message || `Erreur ${res.status}`);
-      setPublishResult({ ok: true, message: `Version ${data.version ?? "?"} publiée.` });
+      if (!res.ok) throw new Error(data.error || data.message || t("assistant.errorStatus", { status: res.status }));
+      setPublishResult({ ok: true, message: t("assistant.publishVersionSuccess", { version: data.version ?? "?" }) });
       await loadConfig();
     } catch (e) {
-      setPublishResult({ ok: false, message: e instanceof Error ? e.message : "Erreur de publication." });
+      setPublishResult({ ok: false, message: e instanceof Error ? e.message : t("assistant.publishError") });
       setPublishBusy(false);
       return;
     }
 
     // Auto-test post-publication : non bloquant sur l'échec, alerte visuelle seulement.
-    setPublishResult({ ok: true, message: "Publication réussie — lancement de la batterie de conformité…" });
+    setPublishResult({ ok: true, message: t("assistant.publishRunningSelftest") });
     try {
       const report = await runSelftestCore();
       setPublishResult(
         report.failed > 0
-          ? { ok: false, message: `Publié, mais ${report.failed}/${report.total} test(s) en échec (voir Auto-test).` }
-          : { ok: true, message: `Publié — auto-test : ${report.passed}/${report.total} réussis.` }
+          ? { ok: false, message: t("assistant.publishSelftestFailed", { failed: report.failed, total: report.total }) }
+          : { ok: true, message: t("assistant.publishSelftestPassed", { passed: report.passed, total: report.total }) }
       );
     } catch (e) {
       setPublishResult({
         ok: false,
-        message: `Publié, mais l'auto-test n'a pas pu être lancé : ${e instanceof Error ? e.message : "erreur"}`,
+        message: t("assistant.publishSelftestUnavailable", { error: e instanceof Error ? e.message : t("assistant.errorLower") }),
       });
     } finally {
       setPublishBusy(false);
     }
-  }, [config, loadConfig, runSelftestCore]);
+  }, [config, loadConfig, runSelftestCore, t]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-bold mb-2">Assistant</h1>
+      <h1 className="text-2xl font-bold mb-2">{t("assistant.heading")}</h1>
       <p className="text-sm text-chanv-terre/60 mb-6">
-        Console d&apos;administration du bot public bleuh-chat — configuration, bac à sable, conformité, transcripts.
+        {t("assistant.intro")}
       </p>
 
       <div className="flex gap-2 mb-6 flex-wrap">
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <button
-            key={t.id}
+            key={tabItem.id}
             type="button"
-            className={t.id === tab ? "btn-primary" : "btn-secondary"}
-            onClick={() => setTab(t.id)}
+            className={tabItem.id === tab ? "btn-primary" : "btn-secondary"}
+            onClick={() => setTab(tabItem.id)}
           >
-            {t.label}
+            {t(tabItem.labelKey)}
           </button>
         ))}
       </div>

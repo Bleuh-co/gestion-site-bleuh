@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { outilsDownload, outilsDownloadPost, outilsFetch, resultMessage, type ResultBanner } from "./outils-types";
 import { OutilsResultBanner } from "./OutilsResultBanner";
+import { useT } from "@/lib/i18n";
 
 /** Section 5 — Outils groupés (geocode, mailerlite, courriel, uploads, chatpot). Gestionnaire+. */
 export function OutilsToolsCard() {
+  const t = useT();
   // Géocodage Ontario
   const [geoBusy, setGeoBusy] = useState<"run" | "reset" | null>(null);
   const [geoResult, setGeoResult] = useState<ResultBanner>(null);
   const runGeocode = async (reset: boolean) => {
-    if (reset && !window.confirm("Réinitialiser le géocodage Ontario ? Toutes les coordonnées seront recalculées.")) {
+    if (reset && !window.confirm(t("outils.confirmResetGeocode"))) {
       return;
     }
     setGeoBusy(reset ? "reset" : "run");
@@ -19,7 +21,7 @@ export function OutilsToolsCard() {
       const data = await outilsFetch(`/tools/geocode-ontario${reset ? "?reset=1" : ""}`, { method: "POST" });
       setGeoResult({ ok: true, message: resultMessage(data) });
     } catch (e) {
-      setGeoResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setGeoResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setGeoBusy(null);
     }
@@ -29,14 +31,14 @@ export function OutilsToolsCard() {
   const [missingBusy, setMissingBusy] = useState(false);
   const [missingResult, setMissingResult] = useState<ResultBanner>(null);
   const runMissingLotsEmail = async () => {
-    if (!window.confirm("Envoyer le courriel « contenu manquant » ? Ceci envoie un vrai courriel.")) return;
+    if (!window.confirm(t("outils.confirmMissingEmail"))) return;
     setMissingBusy(true);
     setMissingResult(null);
     try {
       const data = await outilsFetch("/tools/missing-lots-email", { method: "POST" });
       setMissingResult({ ok: true, message: resultMessage(data) });
     } catch (e) {
-      setMissingResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setMissingResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setMissingBusy(false);
     }
@@ -47,7 +49,7 @@ export function OutilsToolsCard() {
   const [mlResult, setMlResult] = useState<ResultBanner>(null);
   const [mlPreviewHtml, setMlPreviewHtml] = useState<string | null>(null);
   const runMailerlite = async (dry: boolean) => {
-    if (!dry && !window.confirm("Créer le brouillon MailerLite ? Ceci crée réellement un brouillon dans MailerLite.")) {
+    if (!dry && !window.confirm(t("outils.confirmMailerlite"))) {
       return;
     }
     setMlBusy(dry ? "preview" : "create");
@@ -62,7 +64,7 @@ export function OutilsToolsCard() {
       setMlResult({ ok: true, message: resultMessage(data) });
     } catch (e) {
       setMlPreviewHtml(null);
-      setMlResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setMlResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setMlBusy(null);
     }
@@ -74,7 +76,7 @@ export function OutilsToolsCard() {
   const [invResult, setInvResult] = useState<ResultBanner>(null);
   const runInventoryUpload = async () => {
     if (!invFile) {
-      setInvResult({ ok: false, message: "Choisissez un fichier CSV." });
+      setInvResult({ ok: false, message: t("outils.chooseCsv") });
       return;
     }
     setInvBusy(true);
@@ -86,7 +88,7 @@ export function OutilsToolsCard() {
       setInvResult({ ok: true, message: resultMessage(data) });
       setInvFile(null);
     } catch (e) {
-      setInvResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setInvResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setInvBusy(false);
     }
@@ -100,9 +102,9 @@ export function OutilsToolsCard() {
     setMgResult(null);
     try {
       await outilsDownload("/tools/metrogreen-csv", "metrogreen.csv");
-      setMgResult({ ok: true, message: "Téléchargement lancé." });
+      setMgResult({ ok: true, message: t("outils.downloadStarted") });
     } catch (e) {
-      setMgResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setMgResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setMgBusy(false);
     }
@@ -114,7 +116,7 @@ export function OutilsToolsCard() {
   const [chatpotResult, setChatpotResult] = useState<ResultBanner>(null);
   const runChatpot = async () => {
     if (!chatpotFile) {
-      setChatpotResult({ ok: false, message: "Choisissez un fichier XLSX." });
+      setChatpotResult({ ok: false, message: t("outils.chooseXlsx") });
       return;
     }
     setChatpotBusy(true);
@@ -123,10 +125,10 @@ export function OutilsToolsCard() {
       const fd = new FormData();
       fd.append("xlsx", chatpotFile);
       await outilsDownloadPost("/chatpot", fd, "chatpot.pdf");
-      setChatpotResult({ ok: true, message: "Téléchargement lancé." });
+      setChatpotResult({ ok: true, message: t("outils.downloadStarted") });
       setChatpotFile(null);
     } catch (e) {
-      setChatpotResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setChatpotResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setChatpotBusy(false);
     }
@@ -135,16 +137,16 @@ export function OutilsToolsCard() {
   return (
     <section className="card p-4 space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Outils</h2>
-        <p className="text-sm text-chanv-terre/70">Actions ponctuelles — certaines ont un effet réel (courriel, brouillon).</p>
+        <h2 className="text-lg font-semibold">{t("outils.pageTitle")}</h2>
+        <p className="text-sm text-chanv-terre/70">{t("outils.toolsIntro")}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">Géocodage Ontario</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.geocodeTitle")}</h3>
           <div className="flex gap-2 flex-wrap">
             <button type="button" className="btn-secondary" disabled={geoBusy !== null} onClick={() => void runGeocode(false)}>
-              {geoBusy === "run" ? "Lancement…" : "Lancer"}
+              {geoBusy === "run" ? t("outils.launching") : t("outils.run")}
             </button>
             <button
               type="button"
@@ -152,39 +154,39 @@ export function OutilsToolsCard() {
               disabled={geoBusy !== null}
               onClick={() => void runGeocode(true)}
             >
-              {geoBusy === "reset" ? "Réinitialisation…" : "Réinitialiser"}
+              {geoBusy === "reset" ? t("outils.resetting") : t("outils.reset")}
             </button>
           </div>
           <OutilsResultBanner result={geoResult} />
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">Courriel contenu manquant</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.missingEmailTitle")}</h3>
           <button type="button" className="btn-secondary" disabled={missingBusy} onClick={() => void runMissingLotsEmail()}>
-            {missingBusy ? "Envoi…" : "Envoyer le courriel"}
+            {missingBusy ? t("outils.sending") : t("outils.sendEmail")}
           </button>
           <OutilsResultBanner result={missingResult} />
         </div>
 
         <div className="space-y-2 lg:col-span-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">Brouillon MailerLite</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.mailerliteTitle")}</h3>
           <div className="flex gap-2 flex-wrap">
             <button type="button" className="btn-secondary" disabled={mlBusy !== null} onClick={() => void runMailerlite(true)}>
-              {mlBusy === "preview" ? "Aperçu…" : "Prévisualiser"}
+              {mlBusy === "preview" ? t("outils.previewing") : t("outils.preview")}
             </button>
             <button type="button" className="btn-primary" disabled={mlBusy !== null} onClick={() => void runMailerlite(false)}>
-              {mlBusy === "create" ? "Création…" : "Créer le brouillon"}
+              {mlBusy === "create" ? t("outils.creating") : t("outils.createDraft")}
             </button>
           </div>
           <OutilsResultBanner result={mlResult} />
           {mlPreviewHtml && (
-            <iframe title="Aperçu MailerLite" srcDoc={mlPreviewHtml} className="w-full h-96 rounded-xl border border-chanv-fibre bg-white" />
+            <iframe title={t("outils.mailerlitePreview")} srcDoc={mlPreviewHtml} className="w-full h-96 rounded-xl border border-chanv-fibre bg-white" />
           )}
         </div>
 
         <div className="space-y-2">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">
-            Inventaire Web (import CSV de secours)
+            {t("outils.inventoryWebTitle")}
           </h3>
           <input
             className="input"
@@ -193,21 +195,21 @@ export function OutilsToolsCard() {
             onChange={(e) => setInvFile(e.target.files?.[0] ?? null)}
           />
           <button type="button" className="btn-secondary" disabled={invBusy} onClick={() => void runInventoryUpload()}>
-            {invBusy ? "Import…" : "Importer"}
+            {invBusy ? t("outils.importing") : t("outils.import")}
           </button>
           <OutilsResultBanner result={invResult} />
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">CSV MetroGreen (SFTP)</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.metrogreenTitle")}</h3>
           <button type="button" className="btn-secondary" disabled={mgBusy} onClick={() => void runMetrogreenCsv()}>
-            {mgBusy ? "Téléchargement…" : "Télécharger le CSV"}
+            {mgBusy ? t("outils.downloading") : t("outils.downloadCsv")}
           </button>
           <OutilsResultBanner result={mgResult} />
         </div>
 
         <div className="space-y-2 lg:col-span-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">ChatPot (XLSX → PDF)</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.chatpotTitle")}</h3>
           <input
             className="input"
             type="file"
@@ -215,7 +217,7 @@ export function OutilsToolsCard() {
             onChange={(e) => setChatpotFile(e.target.files?.[0] ?? null)}
           />
           <button type="button" className="btn-secondary" disabled={chatpotBusy} onClick={() => void runChatpot()}>
-            {chatpotBusy ? "Génération…" : "Générer le PDF"}
+            {chatpotBusy ? t("outils.generating") : t("outils.generatePdf")}
           </button>
           <OutilsResultBanner result={chatpotResult} />
         </div>

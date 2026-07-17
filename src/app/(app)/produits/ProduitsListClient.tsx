@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Product, Role } from "@/lib/types";
 import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, statusBadgeClass } from "./constants";
+import { useT } from "@/lib/i18n";
 
 interface ProduitsListClientProps {
   role: Role;
 }
 
 export function ProduitsListClient({ role }: ProduitsListClientProps) {
+  const t = useT();
   const canWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,8 +25,8 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
   const [qDebounced, setQDebounced] = useState("");
 
   useEffect(() => {
-    const t = setTimeout(() => setQDebounced(q), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setQDebounced(q), 300);
+    return () => clearTimeout(timer);
   }, [q]);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("produits.errorStatus", { status: res.status }));
         }
         return res.json();
       })
@@ -49,7 +51,7 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
         if (!cancelled) setProducts(data);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message || "Impossible de charger les produits.");
+        if (!cancelled) setError(e.message || t("produits.loadListError"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -57,26 +59,26 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [collection, province, status, qDebounced]);
+  }, [collection, province, status, qDebounced, t]);
 
   const count = useMemo(() => products.length, [products]);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Produits</h1>
+        <h1 className="text-2xl font-bold">{t("produits.title")}</h1>
         {canWrite && (
           <Link href="/produits/nouveau" className="btn-primary">
-            + Nouveau produit
+            + {t("produits.new")}
           </Link>
         )}
       </div>
 
       <div className="card p-4 mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label">Collection</label>
+          <label className="label">{t("produits.collection")}</label>
           <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)}>
-            <option value="">Toutes</option>
+            <option value="">{t("produits.allFem")}</option>
             {KNOWN_COLLECTIONS.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -85,32 +87,32 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
           </select>
         </div>
         <div>
-          <label className="label">Province</label>
+          <label className="label">{t("produits.province")}</label>
           <select className="input" value={province} onChange={(e) => setProvince(e.target.value)}>
-            <option value="">Toutes</option>
-            {Object.entries(PROVINCE_LABELS).map(([v, label]) => (
+            <option value="">{t("produits.allFem")}</option>
+            {Object.keys(PROVINCE_LABELS).map((v) => (
               <option key={v} value={v}>
-                {label}
+                {t("produits.province." + v)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">Statut</label>
+          <label className="label">{t("produits.status")}</label>
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Tous</option>
-            {Object.entries(STATUS_LABELS).map(([v, label]) => (
+            <option value="">{t("produits.allMasc")}</option>
+            {Object.keys(STATUS_LABELS).map((v) => (
               <option key={v} value={v}>
-                {label}
+                {t("produits.status." + v)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">Recherche</label>
+          <label className="label">{t("produits.searchLabel")}</label>
           <input
             className="input"
-            placeholder="Nom, slug, SKU…"
+            placeholder={t("produits.searchPlaceholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -122,13 +124,13 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
       )}
 
       {loading ? (
-        <div className="card p-8 text-center text-gray-400">Chargement…</div>
+        <div className="card p-8 text-center text-gray-400">{t("produits.loading")}</div>
       ) : count === 0 ? (
-        <div className="card p-8 text-center text-gray-400">Aucun produit ne correspond aux filtres.</div>
+        <div className="card p-8 text-center text-gray-400">{t("produits.emptyFiltered")}</div>
       ) : (
         <>
           <p className="text-sm text-chanv-terre/60 mb-3">
-            {count} produit{count > 1 ? "s" : ""}
+            {count} {count > 1 ? t("produits.productsPlural") : t("produits.productSingular")}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p) => (
@@ -142,21 +144,21 @@ export function ProduitsListClient({ role }: ProduitsListClientProps) {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.images.main} alt={p.name?.fr || ""} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-xs text-chanv-terre/40">Aucune image</span>
+                    <span className="text-xs text-chanv-terre/40">{t("produits.noImage")}</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="font-semibold text-sm truncate">{p.name?.fr || "(sans nom)"}</h2>
+                    <h2 className="font-semibold text-sm truncate">{p.name?.fr || t("produits.noName")}</h2>
                     <span className={`badge ${statusBadgeClass(p.status)} whitespace-nowrap`}>
-                      {STATUS_LABELS[p.status] ?? p.status}
+                      {t("produits.status." + p.status)}
                     </span>
                   </div>
                   <p className="text-xs text-chanv-terre/60 mt-1">{p.collection}</p>
                   <div className="flex flex-wrap gap-1 mt-2">
                     {(p.provinces || []).map((pr) => (
                       <span key={pr} className="badge-neutral text-[10px]">
-                        {PROVINCE_LABELS[pr] ?? pr}
+                        {t("produits.province." + pr)}
                       </span>
                     ))}
                     {p.sku && <span className="badge-neutral text-[10px]">{p.sku}</span>}

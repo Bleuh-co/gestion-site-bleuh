@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { EXPORT_EXTS, outilsDownload, type ResultBanner } from "./outils-types";
 import { OutilsResultBanner } from "./OutilsResultBanner";
+import { useT } from "@/lib/i18n";
 
 /** Section 3 — Exports (GET /api/outils/exports/rotations.<ext>). Lecture consultant+. */
 export function OutilsExportsCard() {
+  const t = useT();
   const [province, setProvince] = useState("");
   const [busyExt, setBusyExt] = useState<string | null>(null);
   const [result, setResult] = useState<ResultBanner>(null);
@@ -16,9 +18,9 @@ export function OutilsExportsCard() {
     try {
       const qs = province ? `?province=${encodeURIComponent(province)}` : "";
       await outilsDownload(`/exports/rotations.${ext}${qs}`, `rotations.${ext}`);
-      setResult({ ok: true, message: "Téléchargement lancé." });
+      setResult({ ok: true, message: t("outils.downloadStarted") });
     } catch (e) {
-      setResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setBusyExt(null);
     }
@@ -27,17 +29,17 @@ export function OutilsExportsCard() {
   return (
     <section className="card p-4 space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">Exports</h2>
-        <p className="text-sm text-chanv-terre/70">Export des rotations de produits en boutique.</p>
+        <h2 className="text-lg font-semibold">{t("outils.exportsTitle")}</h2>
+        <p className="text-sm text-chanv-terre/70">{t("outils.exportsIntro")}</p>
       </div>
 
       <div className="flex items-end gap-3 flex-wrap">
         <div className="w-40">
-          <label className="label">Province</label>
+          <label className="label">{t("outils.province")}</label>
           <select className="input" value={province} onChange={(e) => setProvince(e.target.value)}>
-            <option value="">Toutes</option>
-            <option value="QC">Québec</option>
-            <option value="ON">Ontario</option>
+            <option value="">{t("outils.provinceAll")}</option>
+            <option value="QC">{t("outils.provinceQuebec")}</option>
+            <option value="ON">{t("outils.provinceOntario")}</option>
           </select>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -49,7 +51,7 @@ export function OutilsExportsCard() {
               disabled={busyExt !== null}
               onClick={() => void download(ext)}
             >
-              {busyExt === ext ? "Téléchargement…" : label}
+              {busyExt === ext ? t("outils.downloading") : label}
             </button>
           ))}
         </div>

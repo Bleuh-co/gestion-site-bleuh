@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Product, ProductInput } from "@/lib/types";
 import { ProductForm } from "../ProductForm";
+import { useT } from "@/lib/i18n";
 
 export function NouveauProduitClient() {
+  const t = useT();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,13 +24,13 @@ export function NouveauProduitClient() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || `Erreur ${res.status}`);
+        throw new Error(data.error || t("produits.errorStatus", { status: res.status }));
       }
       const product = data as Product;
-      toast.success("Produit créé.");
+      toast.success(t("produits.toastCreated"));
       router.push(`/produits/${encodeURIComponent(product.id)}`);
     } catch (e: any) {
-      const message = e.message || "Impossible de créer le produit.";
+      const message = e.message || t("produits.createError");
       setError(message);
       toast.error(message);
     } finally {
@@ -38,9 +40,9 @@ export function NouveauProduitClient() {
 
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <h1 className="text-2xl font-bold mb-6">Nouveau produit</h1>
+      <h1 className="text-2xl font-bold mb-6">{t("produits.new")}</h1>
       <ProductForm
-        submitLabel="Créer le produit"
+        submitLabel={t("produits.createSubmit")}
         saving={saving}
         error={error}
         onSubmit={handleSubmit}

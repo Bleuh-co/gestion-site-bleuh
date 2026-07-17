@@ -556,3 +556,50 @@ html.gandalf-dark .border-black\/10 {
 html.gandalf-dark .hover\:text-\[\#282828\]:hover {
   color: rgba(255, 255, 255, 0.92);
 }
+
+/* --- Complément couverture modules (Infolettre/SEO/Produits/Outils/Assistant) :
+   classes relevées par audit qui restaient claires sur fond sombre. --- */
+/* Textes gris neutres (gray-*) très utilisés dans les modules */
+html.gandalf-dark .text-gray-400 {
+  color: rgba(255, 255, 255, 0.4);
+}
+html.gandalf-dark .text-gray-500 {
+  color: rgba(255, 255, 255, 0.55);
+}
+html.gandalf-dark .text-gray-600 {
+  color: rgba(255, 255, 255, 0.65);
+}
+/* Opacités "terre" rares complémentaires */
+html.gandalf-dark .text-chanv-terre\/55 {
+  color: rgba(255, 255, 255, 0.55);
+}
+html.gandalf-dark .text-chanv-terre\/75 {
+  color: rgba(255, 255, 255, 0.75);
+}
+/* Fonds clairs utilitaires supplémentaires */
+html.gandalf-dark .bg-gray-100 {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+html.gandalf-dark .bg-white\/40 {
+  background-color: rgba(221, 203, 164, 0.06);
+}
+html.gandalf-dark .bg-black\/10 {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+/* Fonds d'état colorés — variantes -100 (plus soutenues que -50) */
+html.gandalf-dark .bg-emerald-100 {
+  background-color: rgba(5, 150, 105, 0.18);
+}
+html.gandalf-dark .bg-amber-100 {
+  background-color: rgba(217, 119, 6, 0.18);
+}
+html.gandalf-dark .bg-rose-100 {
+  background-color: rgba(225, 29, 72, 0.18);
+}
+/* Bordures fines noires + séparateurs "fibre" */
+html.gandalf-dark .border-black\/5 {
+  border-color: rgba(221, 203, 164, 0.12);
+}
+html.gandalf-dark .divide-chanv-fibre > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(221, 203, 164, 0.14);
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { AssistantConfig, SandboxMessage } from "./assistant-types";
 
 interface AssistantSandboxProps {
@@ -32,6 +33,7 @@ function parseSseEvent(raw: string): { event: string; data: Record<string, unkno
 }
 
 export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
+  const t = useT();
   const [locale, setLocale] = useState("fr");
   const [region, setRegion] = useState("QC");
   const [items, setItems] = useState<ChatItem[]>([]);
@@ -95,7 +97,7 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
         }
         throw new Error(msg);
       }
-      if (!res.body) throw new Error("Réponse vide du serveur.");
+      if (!res.body) throw new Error(t("assistant.emptyResponse"));
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -129,14 +131,14 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
         messagesRef.current = messagesRef.current.slice(0, -1);
         setItems((prev) => {
           const next = prev.slice(0, -1); // bulle bot vide
-          const msg = errorCode === "disabled" ? "L'assistant est désactivé dans cette config." : `Erreur : ${errorCode}`;
+          const msg = errorCode === "disabled" ? t("assistant.disabledInConfig") : t("assistant.errorWithCode", { code: errorCode });
           return [...next, { type: "info", text: msg }];
         });
       } else {
         messagesRef.current = [...messagesRef.current, { role: "assistant", content: botText }];
         const infoItems: ChatItem[] = [];
-        if (escalated) infoItems.push({ type: "info", text: "Escalade déclenchée." });
-        if (limitReached) infoItems.push({ type: "info", text: "Limite atteinte pour cette session." });
+        if (escalated) infoItems.push({ type: "info", text: t("assistant.escalationTriggered") });
+        if (limitReached) infoItems.push({ type: "info", text: t("assistant.sessionLimitReached") });
         if (infoItems.length) setItems((prev) => [...prev, ...infoItems]);
       }
     } catch (e) {
@@ -144,7 +146,7 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
       if (messagesRef.current[messagesRef.current.length - 1]?.role === "user") {
         messagesRef.current = messagesRef.current.slice(0, -1);
       }
-      setError(e instanceof Error ? e.message : "Erreur inconnue.");
+      setError(e instanceof Error ? e.message : t("assistant.unknownError"));
     } finally {
       setBusy(false);
     }
@@ -154,27 +156,27 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
     <div className="space-y-4">
       <div className="card p-4 flex flex-wrap gap-3 items-end">
         <div>
-          <label className="label">Langue</label>
+          <label className="label">{t("assistant.languageLabel")}</label>
           <select className="input" value={locale} onChange={(e) => setLocale(e.target.value)}>
             <option value="fr">FR</option>
             <option value="en">EN</option>
           </select>
         </div>
         <div>
-          <label className="label">Région</label>
+          <label className="label">{t("assistant.regionLabel")}</label>
           <select className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
-            <option value="QC">Québec</option>
-            <option value="CA">Canada</option>
+            <option value="QC">{t("assistant.regionQc")}</option>
+            <option value="CA">{t("assistant.regionCanada")}</option>
           </select>
         </div>
         <button type="button" className="btn-secondary" onClick={reset}>
-          Réinitialiser la session
+          {t("assistant.resetSession")}
         </button>
-        {!canWrite && <span className="text-sm text-chanv-terre/40">Lecture seule pour votre rôle.</span>}
+        {!canWrite && <span className="text-sm text-chanv-terre/40">{t("assistant.readOnlyForRole")}</span>}
       </div>
 
       <div className="card p-4 min-h-[240px] max-h-[420px] overflow-y-auto space-y-2">
-        {items.length === 0 && <p className="text-sm text-chanv-terre/40">Aucun message. Écrivez ci-dessous.</p>}
+        {items.length === 0 && <p className="text-sm text-chanv-terre/40">{t("assistant.noMessages")}</p>}
         {items.map((item, i) => (
           <div
             key={i}
@@ -194,7 +196,7 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
       <div className="flex gap-2">
         <input
           className="input"
-          placeholder="Écrire un message de test…"
+          placeholder={t("assistant.testMessagePlaceholder")}
           value={input}
           disabled={!canWrite || busy}
           onChange={(e) => setInput(e.target.value)}
@@ -206,7 +208,7 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
           }}
         />
         <button type="button" className="btn-primary" disabled={!canWrite || busy} onClick={() => void send()}>
-          Envoyer
+          {t("assistant.send")}
         </button>
       </div>
 

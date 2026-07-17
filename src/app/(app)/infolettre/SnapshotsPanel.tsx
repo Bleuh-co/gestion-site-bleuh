@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MLGroup, SnapshotDoc, SnapshotStatus } from "@/lib/infolettre-types";
 import { SubscriberTable } from "./SubscriberTable";
+import { useT } from "@/lib/i18n";
 
 interface SnapshotsPanelProps {
   canWrite: boolean;
 }
 
-const STATUS_LABEL: Record<SnapshotStatus, string> = {
-  pending: "En attente",
-  running: "En cours",
-  done: "Terminé",
-  failed: "Échoué",
+const STATUS_KEY: Record<SnapshotStatus, string> = {
+  pending: "infolettre.snapStatusPending",
+  running: "infolettre.snapStatusRunning",
+  done: "infolettre.snapStatusDone",
+  failed: "infolettre.snapStatusFailed",
 };
 
 function statusPill(status: SnapshotStatus): string {
@@ -37,6 +38,7 @@ function fmtDateTime(iso?: string): string {
 }
 
 export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
+  const t = useT();
   const [list, setList] = useState<SnapshotDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,15 +52,15 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
       const res = await fetch("/api/infolettre/snapshots", { cache: "no-store" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
       }
       setList(await res.json());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Impossible de charger les copies.");
+      setError(e instanceof Error ? e.message : t("infolettre.snapListError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refresh();
@@ -68,8 +70,8 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
   const hasActive = list.some((s) => s.status === "running" || s.status === "pending");
   useEffect(() => {
     if (!hasActive || selectedId) return;
-    const t = setInterval(refresh, 3000);
-    return () => clearInterval(t);
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
   }, [hasActive, selectedId, refresh]);
 
   if (selectedId) {
@@ -88,10 +90,10 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h2 className="text-lg font-bold">Copies (snapshots)</h2>
+        <h2 className="text-lg font-bold">{t("infolettre.snapListTitle")}</h2>
         {canWrite && !showForm && (
           <button className="btn-primary" onClick={() => setShowForm(true)}>
-            + Créer une copie
+            {t("infolettre.snapCreateBtn")}
           </button>
         )}
       </div>
@@ -113,20 +115,20 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
       )}
 
       {loading && list.length === 0 ? (
-        <div className="card p-8 text-center text-gray-400">Chargement…</div>
+        <div className="card p-8 text-center text-gray-400">{t("infolettre.loading")}</div>
       ) : list.length === 0 ? (
         <div className="card p-8 text-center text-gray-400">
-          Aucune copie enregistrée pour le moment.
+          {t("infolettre.snapEmpty")}
         </div>
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-chanv-terre/60 border-b border-black/5">
-                <th className="px-4 py-3 font-semibold">Nom</th>
-                <th className="px-4 py-3 font-semibold">Statut</th>
-                <th className="px-4 py-3 font-semibold whitespace-nowrap">Abonnés</th>
-                <th className="px-4 py-3 font-semibold whitespace-nowrap hidden md:table-cell">Créé le</th>
+                <th className="px-4 py-3 font-semibold">{t("infolettre.snapColName")}</th>
+                <th className="px-4 py-3 font-semibold">{t("infolettre.snapColStatus")}</th>
+                <th className="px-4 py-3 font-semibold whitespace-nowrap">{t("infolettre.snapColSubscribers")}</th>
+                <th className="px-4 py-3 font-semibold whitespace-nowrap hidden md:table-cell">{t("infolettre.snapColCreatedAt")}</th>
                 <th className="px-4 py-3 font-semibold"></th>
               </tr>
             </thead>
@@ -150,7 +152,7 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
                         s.status
                       )}`}
                     >
-                      {STATUS_LABEL[s.status]}
+                      {t(STATUS_KEY[s.status])}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-chanv-terre/60">
@@ -163,7 +165,7 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button className="btn-ghost" onClick={() => setSelectedId(s.id)}>
-                      Ouvrir
+                      {t("infolettre.snapOpen")}
                     </button>
                   </td>
                 </tr>
@@ -185,6 +187,7 @@ function SnapshotCreateForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [groups, setGroups] = useState<MLGroup[]>([]);
   const [scope, setScope] = useState<"all" | "group">("all");
   const [groupId, setGroupId] = useState("");
@@ -208,14 +211,14 @@ function SnapshotCreateForm({
 
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => setElapsed(Math.round((Date.now() - startedAt.current) / 1000)), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt.current) / 1000)), 1000);
+    return () => clearInterval(timer);
   }, [running]);
 
   const start = useCallback(async () => {
     setRunning(true);
     setError(null);
-    setStatus("Démarrage…");
+    setStatus(t("infolettre.snapFormStarting"));
     setPercent(0);
     setFetched(0);
     startedAt.current = Date.now();
@@ -231,7 +234,7 @@ function SnapshotCreateForm({
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -260,7 +263,7 @@ function SnapshotCreateForm({
           if (event === "status") {
             setStatus(String(payload.message ?? ""));
           } else if (event === "created") {
-            setStatus("Copie en cours…");
+            setStatus(t("infolettre.snapFormCopying"));
             setTotalSubs(Number(payload.totalSubscribers ?? 0));
           } else if (event === "progress") {
             setFetched(Number(payload.fetched ?? 0));
@@ -268,10 +271,10 @@ function SnapshotCreateForm({
             setPercent(Number(payload.percent ?? 0));
           } else if (event === "completed") {
             setPercent(100);
-            setStatus("Terminé.");
+            setStatus(t("infolettre.snapFormDone"));
             setFetched(Number(payload.totalSubscribers ?? 0));
           } else if (event === "error") {
-            setError(String(payload.message ?? "Erreur inconnue"));
+            setError(String(payload.message ?? t("infolettre.snapFormUnknownError")));
           }
         }
       }
@@ -279,34 +282,34 @@ function SnapshotCreateForm({
         setTimeout(onDone, 800);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Échec de la création.");
+      setError(e instanceof Error ? e.message : t("infolettre.snapFormCreateError"));
     } finally {
       setRunning(false);
     }
-  }, [scope, groupId, label, error, onDone]);
+  }, [scope, groupId, label, error, onDone, t]);
 
   return (
     <div className="section-card mb-6">
-      <h3 className="font-bold mb-4">Nouvelle copie</h3>
+      <h3 className="font-bold mb-4">{t("infolettre.snapFormTitle")}</h3>
 
       {!running && percent === 0 ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="label">Portée</label>
+            <label className="label">{t("infolettre.snapFormScope")}</label>
             <select
               className="input"
               value={scope}
               onChange={(e) => setScope(e.target.value as "all" | "group")}
             >
-              <option value="all">Tous les abonnés</option>
-              <option value="group">Un groupe précis</option>
+              <option value="all">{t("infolettre.snapFormScopeAll")}</option>
+              <option value="group">{t("infolettre.snapFormScopeGroup")}</option>
             </select>
           </div>
           {scope === "group" && (
             <div>
-              <label className="label">Groupe</label>
+              <label className="label">{t("infolettre.snapFormGroup")}</label>
               <select className="input" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                <option value="">— Choisir —</option>
+                <option value="">{t("infolettre.snapFormChoose")}</option>
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name} ({g.activeCount})
@@ -316,10 +319,10 @@ function SnapshotCreateForm({
             </div>
           )}
           <div className="sm:col-span-2">
-            <label className="label">Nom (optionnel)</label>
+            <label className="label">{t("infolettre.snapFormName")}</label>
             <input
               className="input"
-              placeholder="Ex. Copie avant campagne du mois"
+              placeholder={t("infolettre.snapFormNamePlaceholder")}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
@@ -330,10 +333,10 @@ function SnapshotCreateForm({
               disabled={scope === "group" && !groupId}
               onClick={start}
             >
-              Lancer la copie
+              {t("infolettre.snapFormLaunch")}
             </button>
             <button className="btn-secondary" onClick={onCancel}>
-              Annuler
+              {t("infolettre.snapFormCancel")}
             </button>
           </div>
         </div>
@@ -348,8 +351,8 @@ function SnapshotCreateForm({
           </div>
           <p className="text-xs text-chanv-terre/60">
             {fetched.toLocaleString("fr-CA")}
-            {totalSubs ? ` / ${totalSubs.toLocaleString("fr-CA")}` : ""} abonnés · {percent}% ·{" "}
-            {elapsed}s
+            {totalSubs ? ` / ${totalSubs.toLocaleString("fr-CA")}` : ""}{" "}
+            {t("infolettre.snapProgressStats", { percent, elapsed })}
           </p>
           {error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 mt-3">
@@ -358,7 +361,7 @@ function SnapshotCreateForm({
           )}
           {(error || percent >= 100) && !running && (
             <button className="btn-secondary mt-4" onClick={onDone}>
-              Fermer
+              {t("infolettre.snapFormClose")}
             </button>
           )}
         </div>
@@ -378,6 +381,7 @@ function SnapshotDetail({
   canWrite: boolean;
   onBack: () => void;
 }) {
+  const t = useT();
   const [snap, setSnap] = useState<SnapshotDoc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -387,13 +391,13 @@ function SnapshotDetail({
       const res = await fetch(`/api/infolettre/snapshots/${id}`, { cache: "no-store" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
       }
       setSnap(await res.json());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Impossible de charger la copie.");
+      setError(e instanceof Error ? e.message : t("infolettre.snapDetailLoadError"));
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     load();
@@ -403,30 +407,30 @@ function SnapshotDetail({
   const active = snap?.status === "running" || snap?.status === "pending";
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
   }, [active, load]);
 
   const remove = useCallback(async () => {
-    if (!confirm("Supprimer définitivement cette copie ?")) return;
+    if (!confirm(t("infolettre.snapDeleteConfirm"))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/infolettre/snapshots/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
       }
       onBack();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Suppression impossible.");
+      setError(e instanceof Error ? e.message : t("infolettre.snapDeleteError"));
       setDeleting(false);
     }
-  }, [id, onBack]);
+  }, [id, onBack, t]);
 
   return (
     <div>
       <button className="btn-ghost mb-4" onClick={onBack}>
-        ← Retour aux copies
+        {t("infolettre.snapBackToList")}
       </button>
 
       {error && (
@@ -436,14 +440,17 @@ function SnapshotDetail({
       )}
 
       {!snap ? (
-        <div className="card p-8 text-center text-gray-400">Chargement…</div>
+        <div className="card p-8 text-center text-gray-400">{t("infolettre.loading")}</div>
       ) : (
         <>
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div>
               <h2 className="text-lg font-bold">{snap.label}</h2>
               <p className="text-sm text-chanv-terre/60">
-                Compte {snap.accountLabel} · créé le {fmtDateTime(snap.createdAt)}
+                {t("infolettre.snapDetailMeta", {
+                  account: snap.accountLabel,
+                  date: fmtDateTime(snap.createdAt),
+                })}
               </p>
             </div>
             <span
@@ -451,27 +458,29 @@ function SnapshotDetail({
                 snap.status
               )}`}
             >
-              {STATUS_LABEL[snap.status]}
+              {t(STATUS_KEY[snap.status])}
             </span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
             <div className="card p-4">
-              <p className="text-xs text-chanv-terre/60">Copiés</p>
+              <p className="text-xs text-chanv-terre/60">{t("infolettre.snapStatCopied")}</p>
               <p className="text-xl font-bold">{snap.fetchedSubscribers.toLocaleString("fr-CA")}</p>
             </div>
             <div className="card p-4">
-              <p className="text-xs text-chanv-terre/60">Total attendu</p>
+              <p className="text-xs text-chanv-terre/60">{t("infolettre.snapStatExpected")}</p>
               <p className="text-xl font-bold">{snap.totalSubscribers.toLocaleString("fr-CA")}</p>
             </div>
             <div className="card p-4">
-              <p className="text-xs text-chanv-terre/60">Portée</p>
+              <p className="text-xs text-chanv-terre/60">{t("infolettre.snapStatScope")}</p>
               <p className="text-xl font-bold">
-                {snap.scope === "group" ? snap.groupName || "Groupe" : "Tous"}
+                {snap.scope === "group"
+                  ? snap.groupName || t("infolettre.snapFormGroup")
+                  : t("infolettre.snapScopeAll")}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-xs text-chanv-terre/60">Par</p>
+              <p className="text-xs text-chanv-terre/60">{t("infolettre.snapStatBy")}</p>
               <p className="text-sm font-medium break-all">{snap.createdByEmail}</p>
             </div>
           </div>
@@ -490,13 +499,13 @@ function SnapshotDetail({
                   }}
                 />
               </div>
-              <p className="text-xs text-chanv-terre/60">Copie en cours…</p>
+              <p className="text-xs text-chanv-terre/60">{t("infolettre.snapFormCopying")}</p>
             </div>
           )}
 
           {snap.status === "failed" && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-6">
-              La copie a échoué. {snap.errorMessage}
+              {t("infolettre.snapFailedMsg")} {snap.errorMessage}
             </div>
           )}
 
@@ -507,19 +516,19 @@ function SnapshotDetail({
                   className="btn-secondary"
                   href={`/api/infolettre/snapshots/${id}/export?format=csv`}
                 >
-                  Exporter CSV
+                  {t("infolettre.snapExportCsv")}
                 </a>
                 <a
                   className="btn-secondary"
                   href={`/api/infolettre/snapshots/${id}/export?format=json`}
                 >
-                  Exporter JSON
+                  {t("infolettre.snapExportJson")}
                 </a>
               </>
             )}
             {canWrite && (
               <button className="btn-ghost text-rose-600" disabled={deleting} onClick={remove}>
-                {deleting ? "Suppression…" : "Supprimer"}
+                {deleting ? t("infolettre.snapDeleting") : t("infolettre.snapDelete")}
               </button>
             )}
           </div>

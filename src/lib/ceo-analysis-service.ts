@@ -327,7 +327,7 @@ async function callAiSummary(
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 512,
+      max_tokens: 1024,
       system: AI_SYSTEM_PROMPT,
       messages: [
         {
@@ -624,7 +624,7 @@ export async function runDeepCeoAnalysis(period: CeoPeriod): Promise<DeepAnalysi
 
       const response = await client.messages.create({
         model: "claude-sonnet-4-6",
-        max_tokens: 1536,
+        max_tokens: 4096, // éviter le tronquage du JSON d'analyse approfondie
         system: DEEP_ANALYSIS_SYSTEM_PROMPT,
         messages: [
           {

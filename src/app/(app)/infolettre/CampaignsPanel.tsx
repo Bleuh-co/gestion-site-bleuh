@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Campaign, CampaignsResponse, CampaignsSummary } from "@/lib/infolettre-types";
+import { useT } from "@/lib/i18n";
 
 type SortKey = "date" | "click";
 
@@ -21,13 +22,14 @@ function fmtDate(s?: string): string {
   return d.toLocaleDateString("fr-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  regular: "Régulière",
-  followup: "Relance",
-  ab: "A/B",
+const TYPE_KEY: Record<string, string> = {
+  regular: "infolettre.campTypeRegular",
+  followup: "infolettre.campTypeFollowup",
+  ab: "infolettre.campTypeAb",
 };
 
 export function CampaignsPanel() {
+  const t = useT();
   const [summary, setSummary] = useState<CampaignsSummary | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,17 +43,17 @@ export function CampaignsPanel() {
       const res = await fetch("/api/infolettre/campaigns", { cache: "no-store" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
       }
       const data: CampaignsResponse = await res.json();
       setSummary(data.summary);
       setCampaigns(data.campaigns ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Impossible de charger les campagnes.");
+      setError(e instanceof Error ? e.message : t("infolettre.campLoadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -68,22 +70,20 @@ export function CampaignsPanel() {
   }, [campaigns, sortKey]);
 
   const kpis: { label: string; value: string }[] = [
-    { label: "Campagnes envoyées", value: summary ? fmtInt(summary.campaigns) : "—" },
-    { label: "Destinataires (total)", value: summary ? fmtInt(summary.totalRecipients) : "—" },
-    { label: "Taux d'ouverture moyen", value: summary ? fmtPct(summary.avgOpenRate) : "—" },
-    { label: "Taux de clic moyen", value: summary ? fmtPct(summary.avgClickRate) : "—" },
+    { label: t("infolettre.kpiCampaignsSent"), value: summary ? fmtInt(summary.campaigns) : "—" },
+    { label: t("infolettre.kpiRecipientsTotal"), value: summary ? fmtInt(summary.totalRecipients) : "—" },
+    { label: t("infolettre.kpiAvgOpenRate"), value: summary ? fmtPct(summary.avgOpenRate) : "—" },
+    { label: t("infolettre.kpiAvgClickRate"), value: summary ? fmtPct(summary.avgClickRate) : "—" },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <p className="text-sm text-chanv-terre/60 max-w-xl">
-          Données MailerLite rafraîchies à l&apos;ouverture / à l&apos;actualisation —
-          l&apos;analytique email est quasi temps réel (les ouvertures/clics arrivent en continu
-          après l&apos;envoi).
+          {t("infolettre.campIntro")}
         </p>
         <button className="btn-secondary" disabled={loading} onClick={load}>
-          {loading ? "Actualisation…" : "Actualiser"}
+          {loading ? t("infolettre.refreshing") : t("infolettre.refresh")}
         </button>
       </div>
 
@@ -107,22 +107,22 @@ export function CampaignsPanel() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-chanv-terre/60 border-b border-black/5">
-              <th className="px-4 py-3 font-semibold">Nom / Sujet</th>
+              <th className="px-4 py-3 font-semibold">{t("infolettre.campColName")}</th>
               <th
                 className="px-4 py-3 font-semibold whitespace-nowrap cursor-pointer select-none"
                 onClick={() => setSortKey("date")}
               >
-                Date d&apos;envoi {sortKey === "date" ? "▾" : ""}
+                {t("infolettre.campColDate")} {sortKey === "date" ? "▾" : ""}
               </th>
-              <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Destinataires</th>
+              <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">{t("infolettre.campColRecipients")}</th>
               <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">
-                Taux d&apos;ouverture
+                {t("infolettre.campColOpenRate")}
               </th>
               <th
                 className="px-4 py-3 font-semibold text-right whitespace-nowrap cursor-pointer select-none"
                 onClick={() => setSortKey("click")}
               >
-                Taux de clic {sortKey === "click" ? "▾" : ""}
+                {t("infolettre.campColClickRate")} {sortKey === "click" ? "▾" : ""}
               </th>
             </tr>
           </thead>
@@ -130,7 +130,7 @@ export function CampaignsPanel() {
             {sorted.length === 0 && !loading ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                  Aucune campagne envoyée.
+                  {t("infolettre.campEmpty")}
                 </td>
               </tr>
             ) : (
@@ -140,8 +140,8 @@ export function CampaignsPanel() {
                     <div className="font-medium">{c.name || "—"}</div>
                     <div className="text-xs text-chanv-terre/50">
                       {c.subject}
-                      {TYPE_LABEL[c.type] ? (
-                        <span className="badge-neutral text-[10px] ml-2">{TYPE_LABEL[c.type]}</span>
+                      {TYPE_KEY[c.type] ? (
+                        <span className="badge-neutral text-[10px] ml-2">{t(TYPE_KEY[c.type])}</span>
                       ) : null}
                     </div>
                   </td>
@@ -160,7 +160,7 @@ export function CampaignsPanel() {
         </table>
       </div>
 
-      {loading && <div className="text-center text-gray-400 text-sm py-4">Chargement…</div>}
+      {loading && <div className="text-center text-gray-400 text-sm py-4">{t("infolettre.loading")}</div>}
     </div>
   );
 }

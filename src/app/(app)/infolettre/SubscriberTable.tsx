@@ -2,22 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Subscriber, SubscriberStatus } from "@/lib/infolettre-types";
+import { useT } from "@/lib/i18n";
 
-const STATUS_OPTIONS: { value: "" | SubscriberStatus; label: string }[] = [
-  { value: "", label: "Tous les statuts" },
-  { value: "active", label: "Actif" },
-  { value: "unsubscribed", label: "Désabonné" },
-  { value: "unconfirmed", label: "Non confirmé" },
-  { value: "bounced", label: "Rejeté" },
-  { value: "junk", label: "Indésirable" },
+const STATUS_OPTIONS: { value: "" | SubscriberStatus; key: string }[] = [
+  { value: "", key: "infolettre.subStatusAll" },
+  { value: "active", key: "infolettre.subStatusActive" },
+  { value: "unsubscribed", key: "infolettre.subStatusUnsubscribed" },
+  { value: "unconfirmed", key: "infolettre.subStatusUnconfirmed" },
+  { value: "bounced", key: "infolettre.subStatusBounced" },
+  { value: "junk", key: "infolettre.subStatusJunk" },
 ];
 
-const STATUS_LABEL: Record<string, string> = {
-  active: "Actif",
-  unsubscribed: "Désabonné",
-  unconfirmed: "Non confirmé",
-  bounced: "Rejeté",
-  junk: "Indésirable",
+const STATUS_KEY: Record<string, string> = {
+  active: "infolettre.subStatusActive",
+  unsubscribed: "infolettre.subStatusUnsubscribed",
+  unconfirmed: "infolettre.subStatusUnconfirmed",
+  bounced: "infolettre.subStatusBounced",
+  junk: "infolettre.subStatusJunk",
 };
 
 function statusPillClass(status: string): string {
@@ -65,6 +66,7 @@ interface SubscriberTableProps {
 }
 
 export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTableProps) {
+  const t = useT();
   const [rows, setRows] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +85,8 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
   const reqId = useRef(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(search), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSearchDebounced(search), 300);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const load = useCallback(
@@ -105,7 +107,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
         const res = await fetch(`${fetchUrl}?${params.toString()}`, { cache: "no-store" });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
         }
         const data = await res.json();
         if (id !== reqId.current) return; // réponse périmée
@@ -120,13 +122,13 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
         }
       } catch (e) {
         if (id === reqId.current) {
-          setError(e instanceof Error ? e.message : "Impossible de charger les abonnés.");
+          setError(e instanceof Error ? e.message : t("infolettre.subLoadError"));
         }
       } finally {
         if (id === reqId.current) setLoading(false);
       }
     },
-    [fetchUrl, searchDebounced, status, cursorMode]
+    [fetchUrl, searchDebounced, status, cursorMode, t]
   );
 
   // Reset + reload quand les filtres changent
@@ -142,7 +144,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           className="input flex-1 min-w-[180px]"
-          placeholder="Rechercher un courriel…"
+          placeholder={t("infolettre.subSearchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -153,7 +155,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.key)}
             </option>
           ))}
         </select>
@@ -167,8 +169,10 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
 
       {total !== null && (
         <p className="text-sm text-chanv-terre/60 mb-3">
-          {total.toLocaleString("fr-CA")} abonné{total > 1 ? "s" : ""}
-          {cursorMode ? " (estimation)" : ""}
+          {t(total > 1 ? "infolettre.subCountPlural" : "infolettre.subCountSingular", {
+            n: total.toLocaleString("fr-CA"),
+          })}
+          {cursorMode ? ` ${t("infolettre.subCountEstimation")}` : ""}
         </p>
       )}
 
@@ -176,18 +180,18 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-chanv-terre/60 border-b border-black/5">
-              <th className="px-4 py-3 font-semibold">Courriel</th>
-              <th className="px-4 py-3 font-semibold">Statut</th>
-              <th className="px-4 py-3 font-semibold whitespace-nowrap">Inscrit le</th>
-              <th className="px-4 py-3 font-semibold hidden md:table-cell">Groupes</th>
-              <th className="px-4 py-3 font-semibold hidden lg:table-cell">Champs</th>
+              <th className="px-4 py-3 font-semibold">{t("infolettre.subColEmail")}</th>
+              <th className="px-4 py-3 font-semibold">{t("infolettre.subColStatus")}</th>
+              <th className="px-4 py-3 font-semibold whitespace-nowrap">{t("infolettre.subColSubscribedAt")}</th>
+              <th className="px-4 py-3 font-semibold hidden md:table-cell">{t("infolettre.subColGroups")}</th>
+              <th className="px-4 py-3 font-semibold hidden lg:table-cell">{t("infolettre.subColFields")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                  Aucun abonné.
+                  {t("infolettre.subEmpty")}
                 </td>
               </tr>
             ) : (
@@ -200,7 +204,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
                         s.status
                       )}`}
                     >
-                      {STATUS_LABEL[s.status] ?? s.status}
+                      {STATUS_KEY[s.status] ? t(STATUS_KEY[s.status]) : s.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-chanv-terre/60">
@@ -229,7 +233,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
         </table>
       </div>
 
-      {loading && <div className="text-center text-gray-400 text-sm py-4">Chargement…</div>}
+      {loading && <div className="text-center text-gray-400 text-sm py-4">{t("infolettre.loading")}</div>}
 
       {/* Pagination */}
       {cursorMode
@@ -240,7 +244,7 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
                 disabled={loading}
                 onClick={() => load({ cursor: nextCursor, append: true })}
               >
-                Charger plus
+                {t("infolettre.subLoadMore")}
               </button>
             </div>
           )
@@ -251,17 +255,17 @@ export function SubscriberTable({ fetchUrl, cursorMode = false }: SubscriberTabl
                 disabled={loading || page <= 1}
                 onClick={() => load({ page: page - 1, append: false })}
               >
-                Précédent
+                {t("infolettre.subPrev")}
               </button>
               <span className="text-sm text-chanv-terre/60">
-                Page {page} / {totalPages}
+                {t("infolettre.subPageOf", { page, total: totalPages })}
               </span>
               <button
                 className="btn-secondary"
                 disabled={loading || page >= totalPages}
                 onClick={() => load({ page: page + 1, append: false })}
               >
-                Suivant
+                {t("infolettre.subNext")}
               </button>
             </div>
           )}

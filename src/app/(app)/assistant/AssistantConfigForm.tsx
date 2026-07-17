@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { AssistantConfig, FaqItem, LegalCore, ResultBanner } from "./assistant-types";
 
 interface AssistantConfigFormProps {
@@ -44,6 +45,7 @@ export function AssistantConfigForm({
   onChange,
   onPublish,
 }: AssistantConfigFormProps) {
+  const t = useT();
   const [legalOpen, setLegalOpen] = useState(false);
 
   const updateFaq = (index: number, patch: Partial<FaqItem>) => {
@@ -62,10 +64,14 @@ export function AssistantConfigForm({
       <div className="card p-4 flex items-center justify-between flex-wrap gap-2">
         <span className="text-sm text-chanv-terre/60">
           {config.version && config.version > 0
-            ? `Version ${config.version} — publiée par ${config.updatedBy || "?"} le ${fmtDate(config.updatedAt)}`
-            : "Aucune version publiée."}
+            ? t("assistant.configVersionInfo", {
+                version: config.version,
+                by: config.updatedBy || "?",
+                date: fmtDate(config.updatedAt),
+              })
+            : t("assistant.noVersionPublished")}
         </span>
-        {loading && <span className="text-sm text-chanv-terre/40">Chargement…</span>}
+        {loading && <span className="text-sm text-chanv-terre/40">{t("assistant.loading")}</span>}
       </div>
 
       {/* Champs de config verrouillés en lecture seule pour un consultant —
@@ -82,15 +88,15 @@ export function AssistantConfigForm({
             onChange={(e) => onChange({ enabled: e.target.checked })}
           />
           <label htmlFor="assistant-enabled" className="label mb-0">
-            Assistant activé
+            {t("assistant.enabledLabel")}
           </label>
         </div>
         <div>
-          <label className="label">Modèle</label>
+          <label className="label">{t("assistant.modelLabel")}</label>
           <input className="input" value={config.model} onChange={(e) => onChange({ model: e.target.value })} />
         </div>
         <div>
-          <label className="label">Courriel d&apos;escalade</label>
+          <label className="label">{t("assistant.escalationEmailLabel")}</label>
           <input
             className="input"
             type="email"
@@ -102,7 +108,7 @@ export function AssistantConfigForm({
 
       <div className="card p-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">Identité (FR)</label>
+          <label className="label">{t("assistant.identityFr")}</label>
           <textarea
             className="input"
             rows={3}
@@ -111,7 +117,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Identity (EN)</label>
+          <label className="label">{t("assistant.identityEn")}</label>
           <textarea
             className="input"
             rows={3}
@@ -120,7 +126,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Ton (FR)</label>
+          <label className="label">{t("assistant.toneFr")}</label>
           <textarea
             className="input"
             rows={2}
@@ -129,7 +135,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Tone (EN)</label>
+          <label className="label">{t("assistant.toneEn")}</label>
           <textarea
             className="input"
             rows={2}
@@ -138,7 +144,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Amorces de conversation (FR, une par ligne)</label>
+          <label className="label">{t("assistant.startersFr")}</label>
           <textarea
             className="input"
             rows={4}
@@ -147,7 +153,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Conversation starters (EN, one per line)</label>
+          <label className="label">{t("assistant.startersEn")}</label>
           <textarea
             className="input"
             rows={4}
@@ -159,41 +165,41 @@ export function AssistantConfigForm({
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="label mb-0">FAQ</span>
+          <span className="label mb-0">{t("assistant.faqTitle")}</span>
           <button type="button" className="btn-secondary" onClick={addFaq}>
-            + Ajouter une question
+            {t("assistant.addQuestion")}
           </button>
         </div>
         <div className="space-y-3">
-          {config.faq.length === 0 && <p className="text-sm text-chanv-terre/40">Aucune question FAQ.</p>}
+          {config.faq.length === 0 && <p className="text-sm text-chanv-terre/40">{t("assistant.noFaq")}</p>}
           {config.faq.map((item, i) => (
             <div key={i} className="grid gap-2 sm:grid-cols-5 items-start border border-chanv-fibre rounded-xl p-3">
               <input
                 className="input"
-                placeholder="Question (FR)"
+                placeholder={t("assistant.faqQuestionFrPlaceholder")}
                 value={item.q_fr}
                 onChange={(e) => updateFaq(i, { q_fr: e.target.value })}
               />
               <input
                 className="input"
-                placeholder="Réponse (FR)"
+                placeholder={t("assistant.faqAnswerFrPlaceholder")}
                 value={item.a_fr}
                 onChange={(e) => updateFaq(i, { a_fr: e.target.value })}
               />
               <input
                 className="input"
-                placeholder="Question (EN)"
+                placeholder={t("assistant.faqQuestionEnPlaceholder")}
                 value={item.q_en}
                 onChange={(e) => updateFaq(i, { q_en: e.target.value })}
               />
               <input
                 className="input"
-                placeholder="Réponse (EN)"
+                placeholder={t("assistant.faqAnswerEnPlaceholder")}
                 value={item.a_en}
                 onChange={(e) => updateFaq(i, { a_en: e.target.value })}
               />
               <button type="button" className="btn-secondary" onClick={() => removeFaq(i)}>
-                Retirer
+                {t("assistant.remove")}
               </button>
             </div>
           ))}
@@ -202,7 +208,7 @@ export function AssistantConfigForm({
 
       <div className="card p-4 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div>
-          <label className="label">Budget quotidien ($ USD)</label>
+          <label className="label">{t("assistant.dailyBudgetLabel")}</label>
           <input
             className="input"
             type="number"
@@ -212,7 +218,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Max messages / session</label>
+          <label className="label">{t("assistant.maxMessagesLabel")}</label>
           <input
             className="input"
             type="number"
@@ -221,7 +227,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Max requêtes / heure / IP</label>
+          <label className="label">{t("assistant.maxRequestsLabel")}</label>
           <input
             className="input"
             type="number"
@@ -230,7 +236,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Max caractères en entrée</label>
+          <label className="label">{t("assistant.maxInputLabel")}</label>
           <input
             className="input"
             type="number"
@@ -239,7 +245,7 @@ export function AssistantConfigForm({
           />
         </div>
         <div>
-          <label className="label">Max tokens en sortie</label>
+          <label className="label">{t("assistant.maxOutputLabel")}</label>
           <input
             className="input"
             type="number"
@@ -257,7 +263,7 @@ export function AssistantConfigForm({
           onClick={() => setLegalOpen((v) => !v)}
           aria-expanded={legalOpen}
         >
-          {legalOpen ? "▾" : "▸"} Socle légal (lecture seule)
+          {legalOpen ? "▾" : "▸"} {t("assistant.legalCore")}
         </button>
         {legalOpen && (
           <div className="grid gap-4 sm:grid-cols-2 mt-3">
@@ -273,9 +279,9 @@ export function AssistantConfigForm({
 
       <div className="flex items-center gap-3 flex-wrap">
         <button type="button" className="btn-primary" disabled={!canWrite || publishBusy} onClick={onPublish}>
-          {publishBusy ? "Publication…" : "Publier"}
+          {publishBusy ? t("assistant.publishing") : t("assistant.publish")}
         </button>
-        {!canWrite && <span className="text-sm text-chanv-terre/40">Lecture seule pour votre rôle.</span>}
+        {!canWrite && <span className="text-sm text-chanv-terre/40">{t("assistant.readOnlyForRole")}</span>}
       </div>
 
       {publishResult && (

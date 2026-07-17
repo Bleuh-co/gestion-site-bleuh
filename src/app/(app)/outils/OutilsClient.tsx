@@ -8,6 +8,7 @@ import { OutilsExportsCard } from "./OutilsExportsCard";
 import { OutilsOverridesCard } from "./OutilsOverridesCard";
 import { OutilsToolsCard } from "./OutilsToolsCard";
 import { outilsFetch, type ResultBanner } from "./outils-types";
+import { useT } from "@/lib/i18n";
 
 interface OutilsClientProps {
   role: Role;
@@ -18,6 +19,7 @@ interface OutilsClientProps {
 // L'autorisation réelle est appliquée côté serveur (requireRead/requireWrite
 // dans chaque route /api/outils/*) — ce gate ne fait qu'adapter l'affichage.
 export function OutilsClient({ role }: OutilsClientProps) {
+  const t = useT();
   const canWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
 
   const [heartbeats, setHeartbeats] = useState<Record<string, unknown> | null>(null);
@@ -32,11 +34,11 @@ export function OutilsClient({ role }: OutilsClientProps) {
       setHeartbeats((data && data.heartbeats) || {});
     } catch (e) {
       setHeartbeats({});
-      setStatusError({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setStatusError({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setStatusLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadStatus();
@@ -45,11 +47,8 @@ export function OutilsClient({ role }: OutilsClientProps) {
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold mb-2">Outils</h1>
-        <p className="text-sm text-chanv-terre/60">
-          Console d&apos;opérations — statut des synchronisations, exports, overrides de lots et outils ponctuels
-          (proxy admin BleuhAPI).
-        </p>
+        <h1 className="text-2xl font-bold mb-2">{t("outils.pageTitle")}</h1>
+        <p className="text-sm text-chanv-terre/60">{t("outils.pageIntro")}</p>
       </div>
 
       <OutilsStatusCard heartbeats={heartbeats} loading={statusLoading} error={statusError} onRefresh={() => void loadStatus()} />

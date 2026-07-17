@@ -10,6 +10,7 @@ import {
   type ResultBanner,
 } from "./outils-types";
 import { OutilsResultBanner } from "./OutilsResultBanner";
+import { useT } from "@/lib/i18n";
 
 interface OverrideItemDraft {
   lot: string;
@@ -24,6 +25,7 @@ interface OutilsOverridesCardProps {
 
 /** Section 4 — Overrides de lots (GET/POST/DELETE /api/outils/lot-overrides). */
 export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
+  const t = useT();
   const [rows, setRows] = useState<OverrideRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [listResult, setListResult] = useState<ResultBanner>(null);
@@ -45,7 +47,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
       setRows(flattenOverrides(data));
     } catch (e) {
       setRows([]);
-      setListResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setListResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setLoading(false);
     }
@@ -57,7 +59,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
 
   const handleDelete = async (row: OverrideRow, index: number) => {
     if (
-      !window.confirm(`Supprimer l'override du lot « ${row.lot ?? "?"} » (magasin ${row.store ?? "?"}) ?`)
+      !window.confirm(t("outils.confirmDeleteOverride", { lot: row.lot ?? "?", store: row.store ?? "?" }))
     ) {
       return;
     }
@@ -69,10 +71,10 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store_number: row.store, GTIN: row.gtin, lot: row.lot }),
       });
-      setListResult({ ok: true, message: `Supprimé — ${resultMessage(data)}` });
+      setListResult({ ok: true, message: t("outils.deletedWith", { msg: resultMessage(data) }) });
       await loadOverrides();
     } catch (e) {
-      setListResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setListResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setDeleteBusyIndex(null);
     }
@@ -96,7 +98,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
       .map((it) => ({ lot: it.lot.trim(), qty: Number(it.qty || 0) }))
       .filter((it) => it.lot);
     if (!store.trim() || !gtin.trim() || cleanItems.length === 0) {
-      setCreateResult({ ok: false, message: "Magasin, GTIN et au moins un lot sont requis." });
+      setCreateResult({ ok: false, message: t("outils.overrideRequiredFields") });
       return;
     }
     const payload: Record<string, unknown> = { store_number: store.trim(), GTIN: gtin.trim(), items: cleanItems };
@@ -111,11 +113,11 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      setCreateResult({ ok: true, message: `Créé — ${resultMessage(data)}` });
+      setCreateResult({ ok: true, message: t("outils.createdWith", { msg: resultMessage(data) }) });
       resetForm();
       await loadOverrides();
     } catch (e) {
-      setCreateResult({ ok: false, message: e instanceof Error ? e.message : "Erreur." });
+      setCreateResult({ ok: false, message: e instanceof Error ? e.message : t("outils.errorGeneric") });
     } finally {
       setCreateBusy(false);
     }
@@ -124,10 +126,8 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
   return (
     <section className="card p-4 space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Overrides de lots</h2>
-        <p className="text-sm text-chanv-terre/70">
-          Force la mise en avant de lots précis pour un magasin (contourne la rotation automatique).
-        </p>
+        <h2 className="text-lg font-semibold">{t("outils.overridesTitle")}</h2>
+        <p className="text-sm text-chanv-terre/70">{t("outils.overridesIntro")}</p>
       </div>
 
       <OutilsResultBanner result={listResult} />
@@ -136,14 +136,14 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-chanv-fibre">
-              <th className="px-4 py-2">Magasin</th>
+              <th className="px-4 py-2">{t("outils.store")}</th>
               <th className="px-4 py-2">GTIN</th>
-              <th className="px-4 py-2">Lot</th>
-              <th className="px-4 py-2">Qté</th>
-              <th className="px-4 py-2">Restant</th>
-              <th className="px-4 py-2">Ordre</th>
-              <th className="px-4 py-2">Date</th>
-              <th className="px-4 py-2">Statut</th>
+              <th className="px-4 py-2">{t("outils.lot")}</th>
+              <th className="px-4 py-2">{t("outils.qty")}</th>
+              <th className="px-4 py-2">{t("outils.remaining")}</th>
+              <th className="px-4 py-2">{t("outils.order")}</th>
+              <th className="px-4 py-2">{t("outils.date")}</th>
+              <th className="px-4 py-2">{t("outils.status")}</th>
               {canWrite && <th className="px-4 py-2" />}
             </tr>
           </thead>
@@ -151,13 +151,13 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
             {loading ? (
               <tr>
                 <td colSpan={canWrite ? 9 : 8} className="px-4 py-6 text-center text-chanv-terre/50">
-                  Chargement…
+                  {t("outils.tableLoading")}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={canWrite ? 9 : 8} className="px-4 py-6 text-center text-chanv-terre/50">
-                  Aucun override actif.
+                  {t("outils.overridesEmpty")}
                 </td>
               </tr>
             ) : (
@@ -175,7 +175,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
                   <td className="px-4 py-2">{r.date ? fmtDate(r.date) : "—"}</td>
                   <td className="px-4 py-2">
                     <span className={r.expired ? "badge-neutral" : "badge-accent"}>
-                      {r.expired ? "Expiré" : "Actif"}
+                      {r.expired ? t("outils.statusExpired") : t("outils.statusActive")}
                     </span>
                   </td>
                   {canWrite && (
@@ -186,7 +186,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
                         disabled={deleteBusyIndex !== null}
                         onClick={() => void handleDelete(r, i)}
                       >
-                        {deleteBusyIndex === i ? "Suppression…" : "Supprimer"}
+                        {deleteBusyIndex === i ? t("outils.deleting") : t("outils.delete")}
                       </button>
                     </td>
                   )}
@@ -199,10 +199,10 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
 
       {canWrite && (
         <div className="border-t border-chanv-fibre pt-4 space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">Ajouter un override</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-chanv-terre/70">{t("outils.addOverride")}</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="label">Magasin</label>
+              <label className="label">{t("outils.store")}</label>
               <input className="input" value={store} onChange={(e) => setStore(e.target.value)} />
             </div>
             <div>
@@ -210,7 +210,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
               <input className="input" value={gtin} onChange={(e) => setGtin(e.target.value)} />
             </div>
             <div>
-              <label className="label">Qté en vitrine (optionnel)</label>
+              <label className="label">{t("outils.liveQtyLabel")}</label>
               <input
                 className="input"
                 type="number"
@@ -220,7 +220,7 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
               />
             </div>
             <div>
-              <label className="label">Seuil de fin (optionnel)</label>
+              <label className="label">{t("outils.thresholdLabel")}</label>
               <input
                 className="input"
                 type="number"
@@ -232,12 +232,12 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="label">Lots</label>
+            <label className="label">{t("outils.lots")}</label>
             {items.map((it, i) => (
               <div key={i} className="flex gap-2 flex-wrap">
                 <input
                   className="input flex-1 min-w-[10rem]"
-                  placeholder="Nom du lot"
+                  placeholder={t("outils.lotNamePlaceholder")}
                   value={it.lot}
                   onChange={(e) => updateItem(i, { lot: e.target.value })}
                 />
@@ -245,24 +245,24 @@ export function OutilsOverridesCard({ canWrite }: OutilsOverridesCardProps) {
                   className="input w-32"
                   type="number"
                   min={0}
-                  placeholder="Qté"
+                  placeholder={t("outils.qty")}
                   value={it.qty}
                   onChange={(e) => updateItem(i, { qty: e.target.value })}
                 />
                 <button type="button" className="btn-secondary" onClick={() => removeItem(i)}>
-                  Retirer
+                  {t("outils.remove")}
                 </button>
               </div>
             ))}
             <button type="button" className="btn-secondary" onClick={addItem}>
-              + Ajouter un lot
+              {t("outils.addLot")}
             </button>
           </div>
 
           <OutilsResultBanner result={createResult} />
 
           <button type="button" className="btn-primary" disabled={createBusy} onClick={() => void handleCreate()}>
-            {createBusy ? "Création…" : "Créer l'override"}
+            {createBusy ? t("outils.creating") : t("outils.createOverride")}
           </button>
         </div>
       )}

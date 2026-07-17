@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Role } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 
 type Period = "7d" | "30d" | "90d";
 
@@ -65,8 +66,6 @@ interface AnalyseCeoClientProps {
   role: Role;
 }
 
-const PERIOD_LABELS: Record<Period, string> = { "7d": "7 jours", "30d": "30 jours", "90d": "90 jours" };
-
 const nombreFmt = new Intl.NumberFormat("fr-CA");
 const cadFmt = new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 2 });
 const pctFmt = new Intl.NumberFormat("fr-CA", { style: "percent", maximumFractionDigits: 1 });
@@ -82,6 +81,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
+  const t = useT();
   const canRunDeepAnalysis = role === "gestionnaire" || role === "admin" || role === "superadmin";
 
   const [period, setPeriod] = useState<Period>("7d");
@@ -108,7 +108,7 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("ceoAnalysis.errorStatus", { status: res.status }));
         }
         return res.json();
       })
@@ -116,7 +116,7 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
         if (!cancelled) setData(json);
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message || "Impossible de charger l'analyse CEO.");
+        if (!cancelled) setError(e.message || t("ceoAnalysis.errorLoad"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -124,7 +124,7 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  }, [period, t]);
 
   async function handleRunDeepAnalysis() {
     setDeepLoading(true);
@@ -133,12 +133,12 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
       const res = await fetch(`/api/analyse-ceo/run?period=${period}`, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("ceoAnalysis.errorStatus", { status: res.status }));
       }
       const json: DeepAnalysisResult = await res.json();
       setDeepResult(json);
     } catch (e) {
-      setDeepError(e instanceof Error ? e.message : "Impossible de lancer l'analyse approfondie.");
+      setDeepError(e instanceof Error ? e.message : t("ceoAnalysis.errorDeepRun"));
     } finally {
       setDeepLoading(false);
     }
@@ -152,10 +152,8 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Analyse CEO</h1>
-          <p className="text-sm text-chanv-terre/70">
-            KPIs réels de l&apos;assistant Bleuh (chat_usage / chat_sessions) — aucun chiffre inventé.
-          </p>
+          <h1 className="text-2xl font-bold">{t("ceoAnalysis.title")}</h1>
+          <p className="text-sm text-chanv-terre/70">{t("ceoAnalysis.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           {(["7d", "30d", "90d"] as Period[]).map((p) => (
@@ -166,7 +164,7 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
               onClick={() => setPeriod(p)}
               disabled={loading && p === period}
             >
-              {PERIOD_LABELS[p]}
+              {t("ceoAnalysis.periodDays", { n: parseInt(p, 10) })}
             </button>
           ))}
         </div>
@@ -180,35 +178,33 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <KpiCard
-          label="Volume d'interactions"
+          label={t("ceoAnalysis.kpiInteractionsLabel")}
           value={loading || !kpis ? "…" : nombreFmt.format(kpis.interactions.total)}
-          sub={kpis ? `Sur ${kpis.days} jours — requêtes /chat` : undefined}
+          sub={kpis ? t("ceoAnalysis.kpiInteractionsSub", { n: kpis.days }) : undefined}
         />
         <KpiCard
-          label="Coût IA estimé"
+          label={t("ceoAnalysis.kpiCostLabel")}
           value={loading || !kpis ? "…" : cadFmt.format(kpis.cost.totalCad)}
-          sub={kpis ? `${kpis.cost.label} — modèle ${kpis.model}` : undefined}
+          sub={kpis ? t("ceoAnalysis.kpiCostSub", { label: kpis.cost.label, model: kpis.model }) : undefined}
         />
         <KpiCard
-          label="Sessions"
+          label={t("ceoAnalysis.kpiSessionsLabel")}
           value={loading || !kpis ? "…" : nombreFmt.format(kpis.sessions.total)}
-          sub={kpis ? `${nombreFmt.format(kpis.sessions.escalated)} escaladée(s)` : undefined}
+          sub={kpis ? t("ceoAnalysis.kpiSessionsSub", { n: nombreFmt.format(kpis.sessions.escalated) }) : undefined}
         />
         <KpiCard
-          label="Taux d'escalade"
+          label={t("ceoAnalysis.kpiEscalationLabel")}
           value={loading || !kpis ? "…" : escalationRateText}
-          sub={kpis && kpis.sessions.total === 0 ? "Aucune session sur la période" : undefined}
+          sub={kpis && kpis.sessions.total === 0 ? t("ceoAnalysis.kpiEscalationNoSessions") : undefined}
         />
       </div>
 
       <section className="card p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-1">Synthèse IA</h2>
+        <h2 className="text-lg font-semibold mb-1">{t("ceoAnalysis.aiSummaryTitle")}</h2>
         {!loading && data && !data.aiSummary && (
-          <p className="text-sm text-chanv-terre/70">
-            Synthèse IA non disponible : ANTHROPIC_API_KEY non configurée, ou la génération a échoué.
-          </p>
+          <p className="text-sm text-chanv-terre/70">{t("ceoAnalysis.aiSummaryUnavailable")}</p>
         )}
-        {loading && <p className="text-sm text-chanv-terre/70">Chargement…</p>}
+        {loading && <p className="text-sm text-chanv-terre/70">{t("ceoAnalysis.loading")}</p>}
         {!loading && data?.aiSummary && (
           <div className="text-sm whitespace-pre-line leading-relaxed">{data.aiSummary}</div>
         )}
@@ -218,11 +214,8 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
         <section className="card p-4 mb-6">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
             <div>
-              <h2 className="text-lg font-semibold">Analyse approfondie</h2>
-              <p className="text-xs text-chanv-terre/60">
-                Insights stratégiques + recommandations (modèle claude-sonnet-4-6) — consomme des tokens, à lancer
-                à la demande.
-              </p>
+              <h2 className="text-lg font-semibold">{t("ceoAnalysis.deepTitle")}</h2>
+              <p className="text-xs text-chanv-terre/60">{t("ceoAnalysis.deepDescription")}</p>
             </div>
             <button
               type="button"
@@ -230,7 +223,7 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
               onClick={handleRunDeepAnalysis}
               disabled={deepLoading}
             >
-              {deepLoading ? "Analyse en cours…" : "Lancer une vraie analyse"}
+              {deepLoading ? t("ceoAnalysis.deepRunning") : t("ceoAnalysis.deepRunButton")}
             </button>
           </div>
           {deepError && (
@@ -242,75 +235,78 @@ export function AnalyseCeoClient({ role }: AnalyseCeoClientProps) {
             <div className="text-sm whitespace-pre-line leading-relaxed mt-3">{deepResult.insights}</div>
           )}
           {deepResult && !deepResult.insights && !deepError && (
-            <p className="text-sm text-chanv-terre/70 mt-3">
-              Analyse approfondie indisponible : ANTHROPIC_API_KEY non configurée, ou la génération a échoué.
-            </p>
+            <p className="text-sm text-chanv-terre/70 mt-3">{t("ceoAnalysis.deepUnavailable")}</p>
           )}
         </section>
       )}
 
       <section className="card p-4">
-        <h2 className="text-lg font-semibold mb-1">Signaux du site</h2>
-        <p className="text-sm text-chanv-terre/70 mb-3">
-          Le catalogue est lu en direct depuis Firestore. Bleuh.co est un site vitrine, pas un site de vente : le
-          trafic et les clics vers les détaillants viennent de la mesure première-partie du site (collection
-          site_traffic) — aucun chiffre n&apos;est simulé à leur place.
-        </p>
+        <h2 className="text-lg font-semibold mb-1">{t("ceoAnalysis.signalsTitle")}</h2>
+        <p className="text-sm text-chanv-terre/70 mb-3">{t("ceoAnalysis.signalsDescription")}</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Fréquentation du site</p>
+              <p className="font-semibold text-sm">{t("ceoAnalysis.signalTrafficLabel")}</p>
               {data?.sources.siteTraffic.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
-                  {nombreFmt.format(data.sources.siteTraffic.pageViews)} pages vues ·{" "}
-                  {nombreFmt.format(data.sources.siteTraffic.sessions)} sessions
+                  {t("ceoAnalysis.signalTrafficValue", {
+                    views: nombreFmt.format(data.sources.siteTraffic.pageViews),
+                    sessions: nombreFmt.format(data.sources.siteTraffic.sessions),
+                  })}
                 </p>
               ) : (
-                <p className="text-xs text-chanv-terre/60">En attente des premières visites.</p>
+                <p className="text-xs text-chanv-terre/60">{t("ceoAnalysis.awaitingVisits")}</p>
               )}
             </div>
             <span className="badge-neutral">
-              {data?.sources.siteTraffic.status === "ok" ? "Live" : "En attente"}
+              {data?.sources.siteTraffic.status === "ok"
+                ? t("ceoAnalysis.badgeLive")
+                : t("ceoAnalysis.badgeWaiting")}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Clics vers détaillants (SQDC/OCS)</p>
+              <p className="font-semibold text-sm">{t("ceoAnalysis.signalRetailerLabel")}</p>
               {data?.sources.siteTraffic.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
-                  {nombreFmt.format(data.sources.siteTraffic.retailerClicks)} clic(s) détaillant ·{" "}
-                  {nombreFmt.format(data.sources.siteTraffic.productViews)} vue(s) fiche produit
+                  {t("ceoAnalysis.signalRetailerValue", {
+                    clicks: nombreFmt.format(data.sources.siteTraffic.retailerClicks),
+                    views: nombreFmt.format(data.sources.siteTraffic.productViews),
+                  })}
                 </p>
               ) : (
-                <p className="text-xs text-chanv-terre/60">En attente des premières visites.</p>
+                <p className="text-xs text-chanv-terre/60">{t("ceoAnalysis.awaitingVisits")}</p>
               )}
-              <p className="text-xs text-chanv-terre/50 mt-1">
-                Le site ne vend pas directement — la conversion se mesure au clic vers SQDC/OCS.
-              </p>
+              <p className="text-xs text-chanv-terre/50 mt-1">{t("ceoAnalysis.signalRetailerNote")}</p>
             </div>
             <span className="badge-neutral">
-              {data?.sources.siteTraffic.status === "ok" ? "Live" : "En attente"}
+              {data?.sources.siteTraffic.status === "ok"
+                ? t("ceoAnalysis.badgeLive")
+                : t("ceoAnalysis.badgeWaiting")}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-chanv-fibre p-3">
             <div>
-              <p className="font-semibold text-sm">Catalogue en marché</p>
+              <p className="font-semibold text-sm">{t("ceoAnalysis.signalCatalogLabel")}</p>
               {data?.sources.catalogue.status === "ok" ? (
                 <p className="text-xs text-chanv-terre/60">
-                  {nombreFmt.format(data.sources.catalogue.skus)} SKU(s) publié(s) ·{" "}
-                  {nombreFmt.format(data.sources.catalogue.collections)} collection(s) ·{" "}
-                  {data.sources.catalogue.provinces.length > 0
-                    ? data.sources.catalogue.provinces.map((p) => p.toUpperCase()).join(", ")
-                    : "aucune province"}
+                  {t("ceoAnalysis.signalCatalogValue", {
+                    skus: nombreFmt.format(data.sources.catalogue.skus),
+                    collections: nombreFmt.format(data.sources.catalogue.collections),
+                    provinces:
+                      data.sources.catalogue.provinces.length > 0
+                        ? data.sources.catalogue.provinces.map((p) => p.toUpperCase()).join(", ")
+                        : t("ceoAnalysis.noProvince"),
+                  })}
                 </p>
               ) : (
-                <p className="text-xs text-chanv-terre/60">
-                  Collection produits Firestore vide ou illisible.
-                </p>
+                <p className="text-xs text-chanv-terre/60">{t("ceoAnalysis.signalCatalogEmpty")}</p>
               )}
             </div>
             <span className="badge-neutral">
-              {data?.sources.catalogue.status === "ok" ? "Live" : "Non instrumenté"}
+              {data?.sources.catalogue.status === "ok"
+                ? t("ceoAnalysis.badgeLive")
+                : t("ceoAnalysis.badgeNotInstrumented")}
             </span>
           </div>
         </div>

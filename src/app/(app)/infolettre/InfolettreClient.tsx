@@ -7,13 +7,14 @@ import { SubscriberTable } from "./SubscriberTable";
 import { SnapshotsPanel } from "./SnapshotsPanel";
 import { CampaignsPanel } from "./CampaignsPanel";
 import { TrendsPanel } from "./TrendsPanel";
+import { useT } from "@/lib/i18n";
 
 type Tab = "subscribers" | "groups" | "fields" | "snapshots" | "campaigns" | "trends";
 
-const FIELD_TYPE_LABEL: Record<string, string> = {
-  text: "Texte",
-  number: "Nombre",
-  date: "Date",
+const FIELD_TYPE_KEY: Record<string, string> = {
+  text: "infolettre.fieldTypeText",
+  number: "infolettre.fieldTypeNumber",
+  date: "infolettre.fieldTypeDate",
 };
 
 interface InfolettreClientProps {
@@ -22,6 +23,7 @@ interface InfolettreClientProps {
 
 export function InfolettreClient({ role }: InfolettreClientProps) {
   const canWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
+  const t = useT();
 
   const [account, setAccount] = useState<MailerLiteAccount | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -32,30 +34,30 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
         }
         return res.json();
       })
       .then((a: MailerLiteAccount) => setAccount(a))
-      .catch((e) => setAccountError(e.message || "Impossible de charger le compte."));
-  }, []);
+      .catch((e) => setAccountError(e.message || t("infolettre.accountLoadError")));
+  }, [t]);
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "subscribers", label: "Abonnés" },
-    { key: "groups", label: "Groupes" },
-    { key: "fields", label: "Champs" },
-    { key: "campaigns", label: "Campagnes" },
-    { key: "trends", label: "Tendances" },
-    { key: "snapshots", label: "Copies" },
+    { key: "subscribers", label: t("infolettre.tabSubscribers") },
+    { key: "groups", label: t("infolettre.tabGroups") },
+    { key: "fields", label: t("infolettre.tabFields") },
+    { key: "campaigns", label: t("infolettre.tabCampaigns") },
+    { key: "trends", label: t("infolettre.tabTrends") },
+    { key: "snapshots", label: t("infolettre.tabSnapshots") },
   ];
 
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
-        <h1 className="text-2xl font-bold">Infolettre</h1>
+        <h1 className="text-2xl font-bold">{t("infolettre.title")}</h1>
       </div>
       <p className="text-gray-500 mb-6">
-        Explorez les abonnés du compte MailerLite Bleuh et créez des copies exportables.
+        {t("infolettre.intro")}
       </p>
 
       {/* Carte compte */}
@@ -64,7 +66,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
           {accountError}
         </div>
       ) : !account ? (
-        <div className="card p-6 mb-6 text-gray-400">Chargement du compte…</div>
+        <div className="card p-6 mb-6 text-gray-400">{t("infolettre.accountLoading")}</div>
       ) : (
         <div className="section-card mb-6">
           <div className="flex items-start gap-4 flex-wrap">
@@ -74,25 +76,26 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
                 <h2 className="text-lg font-bold">{account.label}</h2>
                 {account.configured ? (
                   <span className="inline-block rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[11px] font-medium">
-                    Configuré
+                    {t("infolettre.accountConfigured")}
                   </span>
                 ) : (
                   <span className="inline-block rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[11px] font-medium">
-                    Non configuré
+                    {t("infolettre.accountNotConfigured")}
                   </span>
                 )}
               </div>
               {account.configured ? (
                 <>
                   <p className="text-sm text-chanv-terre/60 mt-1">
-                    {account.subscriberCount?.toLocaleString("fr-CA") ?? "—"} abonnés · clé{" "}
+                    {t("infolettre.accountSubscribersKey", {
+                      count: account.subscriberCount?.toLocaleString("fr-CA") ?? "—",
+                    })}{" "}
                     <span className="font-mono">{account.apiKeyMasked}</span>
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-chanv-terre/60 mt-1">
-                  La clé API MailerLite Bleuh n&apos;est pas encore renseignée. Les données ne
-                  sont pas disponibles.
+                  {t("infolettre.accountNotConfiguredHelp")}
                 </p>
               )}
             </div>
@@ -134,6 +137,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
 }
 
 function GroupsPanel() {
+  const t = useT();
   const [groups, setGroups] = useState<MLGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,13 +146,13 @@ function GroupsPanel() {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
         }
         return res.json();
       })
       .then((g: MLGroup[]) => setGroups(g))
       .catch((e) => setError(e.message));
-  }, []);
+  }, [t]);
 
   if (error)
     return (
@@ -156,9 +160,9 @@ function GroupsPanel() {
         {error}
       </div>
     );
-  if (!groups) return <div className="card p-8 text-center text-gray-400">Chargement…</div>;
+  if (!groups) return <div className="card p-8 text-center text-gray-400">{t("infolettre.loading")}</div>;
   if (groups.length === 0)
-    return <div className="card p-8 text-center text-gray-400">Aucun groupe.</div>;
+    return <div className="card p-8 text-center text-gray-400">{t("infolettre.groupsEmpty")}</div>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -166,8 +170,10 @@ function GroupsPanel() {
         <div key={g.id} className="card p-4">
           <p className="font-semibold">{g.name}</p>
           <p className="text-sm text-chanv-terre/60 mt-1">
-            {g.activeCount.toLocaleString("fr-CA")} actifs · {g.total.toLocaleString("fr-CA")} au
-            total
+            {t("infolettre.groupCounts", {
+              active: g.activeCount.toLocaleString("fr-CA"),
+              total: g.total.toLocaleString("fr-CA"),
+            })}
           </p>
         </div>
       ))}
@@ -176,6 +182,7 @@ function GroupsPanel() {
 }
 
 function FieldsPanel() {
+  const t = useT();
   const [fields, setFields] = useState<MLField[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,13 +191,13 @@ function FieldsPanel() {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("infolettre.errorHttp", { status: res.status }));
         }
         return res.json();
       })
       .then((f: MLField[]) => setFields(f))
       .catch((e) => setError(e.message));
-  }, []);
+  }, [t]);
 
   if (error)
     return (
@@ -198,18 +205,18 @@ function FieldsPanel() {
         {error}
       </div>
     );
-  if (!fields) return <div className="card p-8 text-center text-gray-400">Chargement…</div>;
+  if (!fields) return <div className="card p-8 text-center text-gray-400">{t("infolettre.loading")}</div>;
   if (fields.length === 0)
-    return <div className="card p-8 text-center text-gray-400">Aucun champ.</div>;
+    return <div className="card p-8 text-center text-gray-400">{t("infolettre.fieldsEmpty")}</div>;
 
   return (
     <div className="card overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-chanv-terre/60 border-b border-black/5">
-            <th className="px-4 py-3 font-semibold">Nom</th>
-            <th className="px-4 py-3 font-semibold">Clé</th>
-            <th className="px-4 py-3 font-semibold">Type</th>
+            <th className="px-4 py-3 font-semibold">{t("infolettre.fieldColName")}</th>
+            <th className="px-4 py-3 font-semibold">{t("infolettre.fieldColKey")}</th>
+            <th className="px-4 py-3 font-semibold">{t("infolettre.fieldColType")}</th>
           </tr>
         </thead>
         <tbody>
@@ -219,7 +226,7 @@ function FieldsPanel() {
               <td className="px-4 py-3 font-mono text-xs text-chanv-terre/60">{f.key}</td>
               <td className="px-4 py-3">
                 <span className="badge-neutral text-[11px]">
-                  {FIELD_TYPE_LABEL[f.type] ?? f.type}
+                  {FIELD_TYPE_KEY[f.type] ? t(FIELD_TYPE_KEY[f.type]) : f.type}
                 </span>
               </td>
             </tr>

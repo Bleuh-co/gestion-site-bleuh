@@ -564,7 +564,7 @@ export async function runSeoAiAnalysis(report: SeoReport): Promise<SeoAnalyseRes
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
       model: SEO_AI_MODEL,
-      max_tokens: 1536,
+      max_tokens: 4096, // ↑ 1536 était trop bas : le JSON de recommandations était tronqué → parse KO → « IA indisponible »
       system: SEO_AI_SYSTEM_PROMPT,
       messages: [
         {

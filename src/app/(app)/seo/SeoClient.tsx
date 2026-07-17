@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
 import type {
   SeoReport,
@@ -12,6 +13,9 @@ import type {
 interface SeoClientProps {
   role: Role;
 }
+
+/** Signature de la fonction de traduction `t` renvoyée par useT(). */
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 const nombreFmt = new Intl.NumberFormat("fr-CA");
 const dateFmt = new Intl.DateTimeFormat("fr-CA", {
@@ -42,10 +46,10 @@ function scoreColor(score: number): string {
   return "var(--color-danger)";
 }
 
-const SEVERITY_META: Record<SeoSeverity, { label: string; color: string }> = {
-  critique: { label: "Critique", color: "var(--color-danger)" },
-  moyenne: { label: "Moyenne", color: "#d9a000" },
-  info: { label: "Info", color: "#4a5568" },
+const SEVERITY_META: Record<SeoSeverity, { labelKey: string; color: string }> = {
+  critique: { labelKey: "seo.severityCritique", color: "var(--color-danger)" },
+  moyenne: { labelKey: "seo.severityMoyenne", color: "#d9a000" },
+  info: { labelKey: "seo.severityInfo", color: "#4a5568" },
 };
 
 function TechCard({
@@ -89,17 +93,18 @@ function FieldBadge({ state, text }: { state: FieldState; text: string }) {
 
 // ── Dérivations par page ────────────────────────────────────────
 
-function titleState(p: SeoPageResult): { state: FieldState; text: string } {
-  if (!p.title.present) return { state: "missing", text: "Manquant" };
-  if (p.title.length > 60) return { state: "warn", text: `Long (${p.title.length})` };
-  return { state: "ok", text: `OK (${p.title.length})` };
+function titleState(p: SeoPageResult, t: TFn): { state: FieldState; text: string } {
+  if (!p.title.present) return { state: "missing", text: t("seo.fieldMissing") };
+  if (p.title.length > 60)
+    return { state: "warn", text: t("seo.fieldLong", { n: p.title.length }) };
+  return { state: "ok", text: t("seo.fieldOk", { n: p.title.length }) };
 }
 
-function metaState(p: SeoPageResult): { state: FieldState; text: string } {
-  if (!p.metaDescription.present) return { state: "missing", text: "Manquant" };
+function metaState(p: SeoPageResult, t: TFn): { state: FieldState; text: string } {
+  if (!p.metaDescription.present) return { state: "missing", text: t("seo.fieldMissing") };
   if (p.metaDescription.length > 160)
-    return { state: "warn", text: `Long (${p.metaDescription.length})` };
-  return { state: "ok", text: `OK (${p.metaDescription.length})` };
+    return { state: "warn", text: t("seo.fieldLong", { n: p.metaDescription.length }) };
+  return { state: "ok", text: t("seo.fieldOk", { n: p.metaDescription.length }) };
 }
 
 function h1State(p: SeoPageResult): { state: FieldState; text: string } {
@@ -138,6 +143,7 @@ function shortUrl(url: string, base: string): string {
 // ─────────────────────────────────────────────────────────────────
 
 export function SeoClient({ role }: SeoClientProps) {
+  const t = useT();
   const canWrite = role === "gestionnaire" || role === "admin" || role === "superadmin";
 
   const [report, setReport] = useState<SeoReport | null>(null);
@@ -160,7 +166,7 @@ export function SeoClient({ role }: SeoClientProps) {
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Erreur ${res.status}`);
+          throw new Error(err.error || t("seo.errorGeneric", { n: res.status }));
         }
         return res.json();
       })
@@ -175,7 +181,7 @@ export function SeoClient({ role }: SeoClientProps) {
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Chargement impossible.");
+        if (!cancelled) setError(e instanceof Error ? e.message : t("seo.loadFailed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -192,7 +198,7 @@ export function SeoClient({ role }: SeoClientProps) {
       const res = await fetch("/api/seo/scan", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("seo.errorGeneric", { n: res.status }));
       }
       const json: SeoReport = await res.json();
       setReport(json);
@@ -200,7 +206,7 @@ export function SeoClient({ role }: SeoClientProps) {
       setAi(null); // l'ancienne synthèse IA portait sur le rapport précédent
       setAiError(null);
     } catch (e) {
-      setScanError(e instanceof Error ? e.message : "Le scan a échoué.");
+      setScanError(e instanceof Error ? e.message : t("seo.scanFailed"));
     } finally {
       setScanLoading(false);
     }
@@ -213,12 +219,12 @@ export function SeoClient({ role }: SeoClientProps) {
       const res = await fetch("/api/seo/analyse", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Erreur ${res.status}`);
+        throw new Error(err.error || t("seo.errorGeneric", { n: res.status }));
       }
       const json: SeoAnalyseResult = await res.json();
       setAi(json);
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : "L'analyse IA a échoué.");
+      setAiError(e instanceof Error ? e.message : t("seo.aiFailed"));
     } finally {
       setAiLoading(false);
     }
@@ -236,11 +242,8 @@ export function SeoClient({ role }: SeoClientProps) {
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Analyse SEO</h1>
-          <p className="text-sm text-chanv-terre/70">
-            Audit du HTML rendu du site public Bleuh.co que voit Google — faits mesurés, aucune
-            estimation inventée.
-          </p>
+          <h1 className="text-2xl font-bold">{t("seo.title")}</h1>
+          <p className="text-sm text-chanv-terre/70">{t("seo.subtitle")}</p>
         </div>
         {canWrite && (
           <div className="flex gap-2 flex-wrap">
@@ -250,16 +253,16 @@ export function SeoClient({ role }: SeoClientProps) {
               onClick={handleScan}
               disabled={scanLoading}
             >
-              {scanLoading ? "Analyse en cours…" : "Lancer l'analyse"}
+              {scanLoading ? t("seo.scanning") : t("seo.runScan")}
             </button>
             <button
               type="button"
               className="btn-secondary"
               onClick={handleAnalyse}
               disabled={aiLoading || !report}
-              title={!report ? "Lancez d'abord une analyse" : undefined}
+              title={!report ? t("seo.runScanFirstTooltip") : undefined}
             >
-              {aiLoading ? "IA en cours…" : "Recommandations IA"}
+              {aiLoading ? t("seo.aiRunning") : t("seo.aiRecommendations")}
             </button>
           </div>
         )}
@@ -276,20 +279,18 @@ export function SeoClient({ role }: SeoClientProps) {
         </div>
       )}
 
-      {loading && <p className="text-sm text-chanv-terre/70">Chargement du dernier rapport…</p>}
+      {loading && <p className="text-sm text-chanv-terre/70">{t("seo.loadingReport")}</p>}
 
       {/* État vide : aucun scan n'a encore tourné. */}
       {!loading && empty && !report && (
         <div className="section-card text-center">
-          <p className="text-lg font-semibold mb-2">Aucune analyse SEO pour l&apos;instant</p>
+          <p className="text-lg font-semibold mb-2">{t("seo.emptyTitle")}</p>
           <p className="text-sm text-chanv-terre/70 mb-4">
-            {canWrite
-              ? "Lancez une première analyse — le site public est crawlé, puis les résultats s'affichent ici."
-              : "Aucun rapport disponible. Un Gestionnaire doit lancer la première analyse."}
+            {canWrite ? t("seo.emptyBodyCanWrite") : t("seo.emptyBodyReadOnly")}
           </p>
           {canWrite && (
             <button type="button" className="btn-primary" onClick={handleScan} disabled={scanLoading}>
-              {scanLoading ? "Analyse en cours…" : "Lancer la première analyse"}
+              {scanLoading ? t("seo.scanning") : t("seo.runFirstScan")}
             </button>
           )}
         </div>
@@ -300,7 +301,7 @@ export function SeoClient({ role }: SeoClientProps) {
           {/* Score + résumé */}
           <div className="grid gap-4 sm:grid-cols-3 mb-6">
             <div className="card p-5 flex flex-col items-center justify-center">
-              <p className="label mb-1">Score global SEO</p>
+              <p className="label mb-1">{t("seo.globalScore")}</p>
               <p className="text-5xl font-bold" style={{ color: scoreColor(report.score) }}>
                 {report.score}
                 <span className="text-2xl text-chanv-terre/40">/100</span>
@@ -308,30 +309,35 @@ export function SeoClient({ role }: SeoClientProps) {
             </div>
             <div className="card p-5 sm:col-span-2 flex flex-col justify-center gap-1">
               <p className="text-sm">
-                <span className="font-semibold">{nombreFmt.format(report.pagesScanned)}</span> page(s)
-                analysée(s) · <span className="font-semibold">{report.issues.length}</span> problème(s)
-                détecté(s)
+                <span className="font-semibold">{nombreFmt.format(report.pagesScanned)}</span>{" "}
+                {t("seo.pagesAnalysed")} ·{" "}
+                <span className="font-semibold">{report.issues.length}</span>{" "}
+                {t("seo.issuesDetected")}
               </p>
               <p className="text-xs text-chanv-terre/60">
-                Site : <span className="font-mono">{report.baseUrl}</span>
+                {t("seo.siteLabel")} <span className="font-mono">{report.baseUrl}</span>
               </p>
-              <p className="text-xs text-chanv-terre/60">Généré le {fmtDate(report.generatedAt)}</p>
+              <p className="text-xs text-chanv-terre/60">
+                {t("seo.generatedOn")} {fmtDate(report.generatedAt)}
+              </p>
             </div>
           </div>
 
           {/* Vérifications techniques */}
           <section className="card p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-3">Vérifications techniques</h2>
+            <h2 className="text-lg font-semibold mb-3">{t("seo.technicalChecks")}</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <TechCard
                 ok={tech.robotsTxt.present && tech.robotsTxt.status < 400}
                 title="robots.txt"
                 detail={
                   tech.robotsTxt.present
-                    ? `Présent (HTTP ${tech.robotsTxt.status})${
-                        tech.robotsTxt.hasSitemapRef ? " · réf. sitemap ✓" : " · sans réf. sitemap"
+                    ? `${t("seo.present", { n: tech.robotsTxt.status })}${
+                        tech.robotsTxt.hasSitemapRef
+                          ? t("seo.sitemapRefYes")
+                          : t("seo.sitemapRefNo")
                       }`
-                    : "Absent ou inaccessible"
+                    : t("seo.absentOrUnreachable")
                 }
               />
               <TechCard
@@ -339,22 +345,25 @@ export function SeoClient({ role }: SeoClientProps) {
                 title="sitemap.xml"
                 detail={
                   tech.sitemapXml.present
-                    ? `${nombreFmt.format(tech.sitemapXml.urlCount)} URL(s) (HTTP ${tech.sitemapXml.status})`
-                    : "Absent ou inaccessible"
+                    ? t("seo.sitemapUrls", {
+                        count: nombreFmt.format(tech.sitemapXml.urlCount),
+                        status: tech.sitemapXml.status,
+                      })
+                    : t("seo.absentOrUnreachable")
                 }
               />
               <TechCard
                 ok={tech.https}
                 title="HTTPS"
-                detail={tech.https ? "Servi en HTTPS" : "Non servi en HTTPS"}
+                detail={tech.https ? t("seo.servedHttps") : t("seo.notServedHttps")}
               />
               <TechCard
                 ok={sum.pagesMissingHreflang === 0}
                 title="hreflang"
                 detail={
                   sum.pagesMissingHreflang === 0
-                    ? "Alternates présents sur toutes les pages"
-                    : `${sum.pagesMissingHreflang} page(s) sans hreflang`
+                    ? t("seo.hreflangAllPresent")
+                    : t("seo.hreflangMissing", { n: sum.pagesMissingHreflang })
                 }
               />
               <TechCard
@@ -362,8 +371,8 @@ export function SeoClient({ role }: SeoClientProps) {
                 title="Canonical"
                 detail={
                   sum.pagesMissingCanonical === 0
-                    ? "Balise canonical sur toutes les pages"
-                    : `${sum.pagesMissingCanonical} page(s) sans canonical`
+                    ? t("seo.canonicalAllPresent")
+                    : t("seo.canonicalMissing", { n: sum.pagesMissingCanonical })
                 }
               />
               <TechCard
@@ -371,8 +380,8 @@ export function SeoClient({ role }: SeoClientProps) {
                 title="JSON-LD"
                 detail={
                   sum.pagesMissingJsonLd === 0
-                    ? "Données structurées sur toutes les pages"
-                    : `${sum.pagesMissingJsonLd} page(s) sans JSON-LD`
+                    ? t("seo.jsonLdAllPresent")
+                    : t("seo.jsonLdMissing", { n: sum.pagesMissingJsonLd })
                 }
               />
               <TechCard
@@ -380,8 +389,8 @@ export function SeoClient({ role }: SeoClientProps) {
                 title="Open Graph"
                 detail={
                   ogMissing === 0
-                    ? "OG title + image sur toutes les pages"
-                    : `${ogMissing} page(s) sans OG complet`
+                    ? t("seo.ogAllPresent")
+                    : t("seo.ogMissing", { n: ogMissing })
                 }
               />
             </div>
@@ -390,8 +399,8 @@ export function SeoClient({ role }: SeoClientProps) {
           {/* Synthèse IA (si demandée) */}
           {(ai || aiError || aiLoading) && (
             <section className="card p-4 mb-6">
-              <h2 className="text-lg font-semibold mb-2">Recommandations IA</h2>
-              {aiLoading && <p className="text-sm text-chanv-terre/70">Génération en cours…</p>}
+              <h2 className="text-lg font-semibold mb-2">{t("seo.aiRecommendations")}</h2>
+              {aiLoading && <p className="text-sm text-chanv-terre/70">{t("seo.aiGenerating")}</p>}
               {aiError && (
                 <div className="border-l-4 pl-3" style={{ borderLeftColor: "var(--color-danger)" }}>
                   <p className="text-sm">{aiError}</p>
@@ -402,9 +411,7 @@ export function SeoClient({ role }: SeoClientProps) {
                   {ai.summary ? (
                     <p className="text-sm whitespace-pre-line leading-relaxed">{ai.summary}</p>
                   ) : (
-                    <p className="text-sm text-chanv-terre/70">
-                      Synthèse IA indisponible : ANTHROPIC_API_KEY absente, ou la génération a échoué.
-                    </p>
+                    <p className="text-sm text-chanv-terre/70">{t("seo.aiUnavailable")}</p>
                   )}
                   {ai.recommendations.length > 0 && (
                     <ol className="space-y-2">
@@ -433,7 +440,9 @@ export function SeoClient({ role }: SeoClientProps) {
                     </ol>
                   )}
                   {ai.model && (
-                    <p className="text-[11px] text-chanv-terre/50">Modèle : {ai.model}</p>
+                    <p className="text-[11px] text-chanv-terre/50">
+                      {t("seo.modelLabel")} {ai.model}
+                    </p>
                   )}
                 </div>
               )}
@@ -442,9 +451,9 @@ export function SeoClient({ role }: SeoClientProps) {
 
           {/* Issues classées par sévérité */}
           <section className="card p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-3">Problèmes détectés</h2>
+            <h2 className="text-lg font-semibold mb-3">{t("seo.issuesTitle")}</h2>
             {report.issues.length === 0 ? (
-              <p className="text-sm text-chanv-terre/70">Aucun problème relevé. 🎉</p>
+              <p className="text-sm text-chanv-terre/70">{t("seo.noIssues")}</p>
             ) : (
               <ul className="space-y-2">
                 {report.issues.map((issue) => {
@@ -457,12 +466,12 @@ export function SeoClient({ role }: SeoClientProps) {
                     >
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="badge" style={{ background: meta.color, color: "#fff" }}>
-                          {meta.label}
+                          {t(meta.labelKey)}
                         </span>
                         <span className="font-semibold text-sm">{issue.title}</span>
                         {issue.pagesAffected > 0 && (
                           <span className="text-xs text-chanv-terre/60">
-                            {nombreFmt.format(issue.pagesAffected)} page(s)
+                            {t("seo.pagesCount", { n: nombreFmt.format(issue.pagesAffected) })}
                           </span>
                         )}
                       </div>
@@ -481,24 +490,24 @@ export function SeoClient({ role }: SeoClientProps) {
 
           {/* Tableau par page */}
           <section className="card p-4">
-            <h2 className="text-lg font-semibold mb-3">Détail par page</h2>
+            <h2 className="text-lg font-semibold mb-3">{t("seo.perPageTitle")}</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-chanv-fibre text-xs uppercase tracking-wide text-chanv-terre/60">
-                    <th className="py-2 pr-3 font-semibold">URL</th>
-                    <th className="py-2 px-3 font-semibold">Title</th>
-                    <th className="py-2 px-3 font-semibold">Meta desc.</th>
-                    <th className="py-2 px-3 font-semibold">H1</th>
-                    <th className="py-2 px-3 font-semibold">JSON-LD</th>
-                    <th className="py-2 pl-3 font-semibold">Issues</th>
+                    <th className="py-2 pr-3 font-semibold">{t("seo.colUrl")}</th>
+                    <th className="py-2 px-3 font-semibold">{t("seo.colTitle")}</th>
+                    <th className="py-2 px-3 font-semibold">{t("seo.colMetaDesc")}</th>
+                    <th className="py-2 px-3 font-semibold">{t("seo.colH1")}</th>
+                    <th className="py-2 px-3 font-semibold">{t("seo.colJsonLd")}</th>
+                    <th className="py-2 pl-3 font-semibold">{t("seo.colIssues")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.pages.map((p) => {
-                    const t = titleState(p);
-                    const m = metaState(p);
-                    const h = h1State(p);
+                    const titleSt = titleState(p, t);
+                    const metaSt = metaState(p, t);
+                    const h1St = h1State(p);
                     const issues = pageIssueCount(p);
                     return (
                       <tr key={p.url} className="border-b border-chanv-fibre/60 align-top">
@@ -511,7 +520,7 @@ export function SeoClient({ role }: SeoClientProps) {
                               className="block text-[11px]"
                               style={{ color: "var(--color-danger)" }}
                             >
-                              Erreur : {p.error}
+                              {t("seo.errorLabel")} {p.error}
                             </span>
                           ) : (
                             <span className="block text-[11px] text-chanv-terre/50">
@@ -520,13 +529,13 @@ export function SeoClient({ role }: SeoClientProps) {
                           )}
                         </td>
                         <td className="py-2 px-3">
-                          <FieldBadge state={t.state} text={t.text} />
+                          <FieldBadge state={titleSt.state} text={titleSt.text} />
                         </td>
                         <td className="py-2 px-3">
-                          <FieldBadge state={m.state} text={m.text} />
+                          <FieldBadge state={metaSt.state} text={metaSt.text} />
                         </td>
                         <td className="py-2 px-3">
-                          <FieldBadge state={h.state} text={h.text} />
+                          <FieldBadge state={h1St.state} text={h1St.text} />
                         </td>
                         <td className="py-2 px-3">
                           <FieldBadge
@@ -535,8 +544,8 @@ export function SeoClient({ role }: SeoClientProps) {
                               p.jsonLd.blocks > 0
                                 ? p.jsonLd.types.length > 0
                                   ? p.jsonLd.types.join(", ")
-                                  : `${p.jsonLd.blocks} bloc(s)`
-                                : "Aucun"
+                                  : t("seo.blocksCount", { n: p.jsonLd.blocks })
+                                : t("seo.jsonLdNone")
                             }
                           />
                         </td>
