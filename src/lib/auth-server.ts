@@ -207,6 +207,23 @@ export async function resolveRole(email: string): Promise<Role> {
   return r.role;
 }
 
+// --- Whitelist (utilisateurs invites hors-domaine) ---------------------------
+// Un email hors domaine (gmail, etc.) est autorise au gate SEULEMENT s'il a ete
+// invite via le hub : users/{email}.invited === true. isEmailAllowed = domaine
+// autorise OU whiteliste. Le ROLE decide ensuite (deny-by-default inchange).
+export async function isWhitelisted(email: string | null | undefined): Promise<boolean> {
+  const e = (email || "").toLowerCase().trim();
+  if (!e) return false;
+  try {
+    const doc = await adminDb().collection("users").doc(e).get();
+    return doc.exists && doc.data()?.invited === true;
+  } catch { return false; }
+}
+export async function isEmailAllowed(email: string | null | undefined): Promise<boolean> {
+  if (isEmailDomainAllowed(email)) return true;
+  return isWhitelisted(email);
+}
+
 export async function getSession(): Promise<SessionContext | null> {
   // Garde d'accès via le SDK Gandalf : cookie __session de l'app OU cookie hub
   // partagé __gandalf_session OU Bearer ; check d'audience ; deny-by-default.
@@ -220,7 +237,7 @@ export async function getSession(): Promise<SessionContext | null> {
       noAccessRoles: ["blocked"],
       roleMapper: appRoleMapper,
     });
-    if (!isEmailDomainAllowed(s.user.email)) return null;
+    if (!(await isEmailAllowed(s.user.email))) return null;
     return {
       uid: s.user.uid,
       email: s.user.email,
