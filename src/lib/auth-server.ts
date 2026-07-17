@@ -11,11 +11,23 @@ export async function createSessionCookie(idToken: string): Promise<string> {
 }
 
 export function sessionCookieOptions() {
+  // L'app est servie sur marketing.bleuh.co et embarquée dans le hub
+  // gandalf.chanv.com → contexte CROSS-SITE (domaines enregistrables différents,
+  // contrairement aux apps *.chanv.com qui sont same-site avec le hub). Un cookie
+  // SameSite=Lax n'est PAS envoyé dans une iframe cross-site : chaque navigation
+  // SSR repart sur /login (boucle) et l'app ne s'ouvre jamais en embarqué.
+  //   → SameSite=None (+ Secure obligatoire) : le cookie voyage dans l'iframe.
+  //   → Partitioned (CHIPS) : il survit au blocage des cookies tiers (le jar est
+  //     partitionné par le site de premier niveau — gandalf.chanv.com en embed,
+  //     marketing.bleuh.co en standalone ; chaque contexte s'authentifie seul).
+  // En dev (HTTP), Secure impossible → repli SameSite=Lax.
+  const isProd = process.env.NODE_ENV === "production";
   return {
     name: SESSION_COOKIE,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+    partitioned: isProd,
     path: "/",
     maxAge: SESSION_MAX_AGE_MS / 1000,
   };
