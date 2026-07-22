@@ -41,6 +41,7 @@ export function NavBar() {
     { href: "/produits", label: t("nav.produits"), show: isRead },
     { href: "/infolettre", label: t("nav.infolettre"), show: isRead },
     { href: "/outils", label: t("nav.outils"), show: isRead },
+    { href: "/shop", label: t("nav.shop"), show: isRead },
     { href: "/assistant", label: t("nav.assistant"), show: isRead },
     // Masqué pour Bleuh — tableau de bord business (trafic/conversions) réservé à la
     // future app Maison d'Herbes (MDH). Code/page/routes conservés, dé-commenter pour réactiver.
