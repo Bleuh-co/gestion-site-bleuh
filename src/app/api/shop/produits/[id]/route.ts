@@ -29,6 +29,13 @@ const ALLOWED_FIELDS = [
   "stock_status",
 ] as const;
 
+// Format monétaire Woo : nombre positif, 2 décimales max (ex. "19.99", "5").
+const PRICE_RE = /^\d+(\.\d{1,2})?$/;
+
+function isValidPrice(v: unknown): boolean {
+  return typeof v === "string" && PRICE_RE.test(v);
+}
+
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireWrite();
@@ -59,6 +66,38 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       payload.stock_status !== "onbackorder"
     ) {
       return NextResponse.json({ success: false, message: "Statut de stock invalide." }, { status: 400 });
+    }
+    // regular_price : nombre positif requis (jamais de chaîne vide — un produit
+    // Woo doit toujours avoir un prix régulier valide).
+    if (payload.regular_price !== undefined && !isValidPrice(payload.regular_price)) {
+      return NextResponse.json(
+        { success: false, message: "Prix régulier invalide (nombre positif, 2 décimales max)." },
+        { status: 400 }
+      );
+    }
+    // sale_price : nombre positif, OU chaîne vide (comportement Woo existant :
+    // "" efface le prix promo).
+    if (
+      payload.sale_price !== undefined &&
+      payload.sale_price !== "" &&
+      !isValidPrice(payload.sale_price)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Prix promo invalide (nombre positif, 2 décimales max, ou vide pour l'effacer).",
+        },
+        { status: 400 }
+      );
+    }
+    if (payload.stock_quantity !== undefined) {
+      const n = Number(payload.stock_quantity);
+      if (!Number.isFinite(n) || n < 0) {
+        return NextResponse.json(
+          { success: false, message: "Quantité de stock invalide (nombre positif)." },
+          { status: 400 }
+        );
+      }
     }
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ success: false, message: "Aucun champ modifiable fourni." }, { status: 400 });
