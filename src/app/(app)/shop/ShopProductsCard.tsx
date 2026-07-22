@@ -64,15 +64,44 @@ export function ShopProductsCard({ canWrite }: ShopProductsCardProps) {
 
   const saveEdit = async (id: number) => {
     if (!draft) return;
-    const payload: Record<string, unknown> = {
-      regular_price: draft.regular_price,
-      sale_price: draft.sale_price,
-      status: draft.status,
+    // Ne construire le PATCH qu'avec les champs réellement modifiés (vs la
+    // valeur d'origine du produit chargé) : bleuh.shop est la boutique LIVE,
+    // renvoyer des champs inchangés risque d'écraser une valeur mise à jour
+    // entre-temps ailleurs (last-write-wins).
+    const original = products.find((p) => p.id === id);
+    const origDraft: EditDraft = {
+      regular_price: original?.regular_price ?? "",
+      sale_price: original?.sale_price ?? "",
+      stock_quantity: original?.stock_quantity == null ? "" : String(original.stock_quantity),
+      status: original?.status ?? "",
     };
-    if (draft.stock_quantity !== "") {
+
+    const payload: Record<string, unknown> = {};
+    // regular_price : jamais de chaîne vide (un produit Woo doit toujours
+    // avoir un prix régulier valide) — on omet plutôt que d'envoyer "".
+    if (draft.regular_price !== origDraft.regular_price && draft.regular_price !== "") {
+      payload.regular_price = draft.regular_price;
+    }
+    // sale_price : "" est un signal valide pour effacer le prix promo
+    // existant (comportement Woo), on l'envoie donc si l'utilisateur l'a
+    // effectivement modifié.
+    if (draft.sale_price !== origDraft.sale_price) {
+      payload.sale_price = draft.sale_price;
+    }
+    if (draft.status !== origDraft.status) {
+      payload.status = draft.status;
+    }
+    if (draft.stock_quantity !== origDraft.stock_quantity && draft.stock_quantity !== "") {
       payload.manage_stock = true;
       payload.stock_quantity = Number(draft.stock_quantity);
     }
+
+    if (Object.keys(payload).length === 0) {
+      // Rien n'a changé : ne pas appeler l'API, comportement identique à annuler.
+      cancelEdit();
+      return;
+    }
+
     setSaving(true);
     try {
       await shopFetch(`/produits/${id}`, {
