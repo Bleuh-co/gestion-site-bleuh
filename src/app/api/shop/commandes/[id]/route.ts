@@ -1,26 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRead, requireWrite } from "@/lib/auth-server";
 import { recordAudit } from "@/lib/audit";
-import { wooFetch, relayWooJson, shopErrorResponse, TIMEOUTS } from "@/lib/woo-proxy";
+import {
+  getOrder,
+  updateOrderStatus,
+  shopErrorResponse,
+  ORDER_STATUSES,
+  type OrderStatus,
+} from "@/lib/shop-store";
 
 export const runtime = "nodejs";
 
-// GET /api/shop/commandes/[id] — détail d'une commande Woo (lecture seule).
+// GET /api/shop/commandes/[id] — détail d'une commande (Firestore shop_orders,
+// docId = numéro SB-####).
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     await requireRead();
     const { id } = await ctx.params;
-    const upstream = await wooFetch(`/orders/${encodeURIComponent(id)}`, { timeout: TIMEOUTS.read });
-    return await relayWooJson(upstream);
+    return NextResponse.json(await getOrder(id));
   } catch (error) {
     return shopErrorResponse(error, "GET /api/shop/commandes/[id]");
   }
 }
 
-// ⚠️ ÉCRITURE RÉELLE sur bleuh.shop (PROD). PATCH /api/shop/commandes/[id] —
-// change UNIQUEMENT le statut de la commande. Statut en liste blanche stricte.
-const ALLOWED_STATUS = ["pending", "processing", "on-hold", "completed", "cancelled", "refunded"] as const;
-
+// PATCH /api/shop/commandes/[id] — change UNIQUEMENT le statut de la commande.
+// Statuts de NOTRE boutique en liste blanche stricte (voir shop-store.ts —
+// les statuts Woo "on-hold"/"failed" n'existent plus).
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireWrite();
@@ -33,20 +38,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ success: false, message: "Corps de requête JSON invalide." }, { status: 400 });
     }
     const status = body && typeof body === "object" ? (body as Record<string, unknown>).status : undefined;
-    if (typeof status !== "string" || !ALLOWED_STATUS.includes(status as (typeof ALLOWED_STATUS)[number])) {
+    if (typeof status !== "string" || !ORDER_STATUSES.includes(status as OrderStatus)) {
       return NextResponse.json({ success: false, message: "Statut de commande invalide." }, { status: 400 });
     }
 
-    const upstream = await wooFetch(`/orders/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: { status },
-      timeout: TIMEOUTS.write,
-    });
-
-    if (upstream.ok) {
-      await recordAudit(session, "shop.order.status", `shop/commandes/${id}`, { status });
-    }
-    return await relayWooJson(upstream);
+    const updated = await updateOrderStatus(id, status as OrderStatus);
+    await recordAudit(session, "shop.order.status", `shop/commandes/${id}`, { status });
+    return NextResponse.json(updated);
   } catch (error) {
     return shopErrorResponse(error, "PATCH /api/shop/commandes/[id]");
   }

@@ -1,28 +1,23 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireRead } from "@/lib/auth-server";
-import { wooFetch, relayWooJson, shopErrorResponse, TIMEOUTS } from "@/lib/woo-proxy";
+import { listOrders, shopErrorResponse } from "@/lib/shop-store";
 
 export const runtime = "nodejs";
 
-// GET /api/shop/commandes — liste des commandes Woo (lecture seule).
-// Proxy vers GET /orders. Query en liste blanche : status, page, search, per_page.
+// GET /api/shop/commandes — liste des commandes (Firestore shop_orders,
+// numérotation SB-####). Query en liste blanche : status, search, page,
+// per_page. Réponse : { items, total, totalPages }, plus récentes d'abord.
 export async function GET(req: NextRequest) {
   try {
     await requireRead();
     const sp = req.nextUrl.searchParams;
-    const perPage = Math.min(Number(sp.get("per_page")) || 20, 100);
-    const upstream = await wooFetch("/orders", {
-      searchParams: {
-        status: sp.get("status") || undefined,
-        search: sp.get("search") || undefined,
-        page: sp.get("page") || undefined,
-        per_page: perPage,
-        orderby: "date",
-        order: "desc",
-      },
-      timeout: TIMEOUTS.read,
+    const result = await listOrders({
+      status: sp.get("status") || undefined,
+      search: sp.get("search") || undefined,
+      page: Number(sp.get("page")) || 1,
+      perPage: Number(sp.get("per_page")) || 20,
     });
-    return await relayWooJson(upstream);
+    return NextResponse.json(result);
   } catch (error) {
     return shopErrorResponse(error, "GET /api/shop/commandes");
   }

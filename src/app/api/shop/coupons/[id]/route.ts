@@ -1,27 +1,20 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireWrite } from "@/lib/auth-server";
 import { recordAudit } from "@/lib/audit";
-import { wooFetch, relayWooJson, shopErrorResponse, TIMEOUTS } from "@/lib/woo-proxy";
+import { deleteCoupon, shopErrorResponse } from "@/lib/shop-store";
 
 export const runtime = "nodejs";
 
-// ⚠️ ÉCRITURE RÉELLE sur bleuh.shop (PROD). DELETE /api/shop/coupons/[id] —
-// supprime définitivement un coupon (force=true : pas de corbeille Woo).
+// DELETE /api/shop/coupons/[id] — supprime définitivement un coupon
+// (Firestore shop_coupons, [id] = code du coupon, insensible à la casse).
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireWrite();
     const { id } = await ctx.params;
 
-    const upstream = await wooFetch(`/coupons/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      searchParams: { force: true },
-      timeout: TIMEOUTS.write,
-    });
-
-    if (upstream.ok) {
-      await recordAudit(session, "shop.coupon.delete", `shop/coupons/${id}`, { id });
-    }
-    return await relayWooJson(upstream);
+    const deleted = await deleteCoupon(id);
+    await recordAudit(session, "shop.coupon.delete", `shop/coupons/${deleted.code}`, { code: deleted.code });
+    return NextResponse.json(deleted);
   } catch (error) {
     return shopErrorResponse(error, "DELETE /api/shop/coupons/[id]");
   }

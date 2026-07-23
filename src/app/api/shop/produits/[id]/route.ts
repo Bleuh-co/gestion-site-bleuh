@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRead, requireWrite } from "@/lib/auth-server";
 import { recordAudit } from "@/lib/audit";
-import { wooFetch, relayWooJson, shopErrorResponse, TIMEOUTS } from "@/lib/woo-proxy";
+import { getProduct, updateProduct, shopErrorResponse, type ProductPatch } from "@/lib/shop-store";
 
 export const runtime = "nodejs";
 
-// GET /api/shop/produits/[id] — détail d'un produit Woo (lecture seule).
+// GET /api/shop/produits/[id] — détail d'un produit (Firestore shop_products).
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     await requireRead();
     const { id } = await ctx.params;
-    const upstream = await wooFetch(`/products/${encodeURIComponent(id)}`, { timeout: TIMEOUTS.read });
-    return await relayWooJson(upstream);
+    return NextResponse.json(await getProduct(id));
   } catch (error) {
     return shopErrorResponse(error, "GET /api/shop/produits/[id]");
   }
 }
 
-// ⚠️ ÉCRITURE RÉELLE sur bleuh.shop (PROD). PATCH /api/shop/produits/[id] —
-// met à jour un produit Woo. Champs en LISTE BLANCHE STRICTE : on ne relaie
-// jamais un body arbitraire du client vers la boutique live.
+// PATCH /api/shop/produits/[id] — met à jour un produit du catalogue maître
+// (Firestore). Champs en LISTE BLANCHE STRICTE : on n'écrit jamais un body
+// arbitraire du client dans le document.
 const ALLOWED_FIELDS = [
   "regular_price",
   "sale_price",
@@ -29,7 +28,7 @@ const ALLOWED_FIELDS = [
   "stock_status",
 ] as const;
 
-// Format monétaire Woo : nombre positif, 2 décimales max (ex. "19.99", "5").
+// Format monétaire : nombre positif, 2 décimales max (ex. "19.99", "5").
 const PRICE_RE = /^\d+(\.\d{1,2})?$/;
 
 function isValidPrice(v: unknown): boolean {
@@ -67,16 +66,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     ) {
       return NextResponse.json({ success: false, message: "Statut de stock invalide." }, { status: 400 });
     }
+    if (payload.manage_stock !== undefined && typeof payload.manage_stock !== "boolean") {
+      return NextResponse.json({ success: false, message: "manage_stock invalide (booléen)." }, { status: 400 });
+    }
     // regular_price : nombre positif requis (jamais de chaîne vide — un produit
-    // Woo doit toujours avoir un prix régulier valide).
+    // doit toujours avoir un prix régulier valide).
     if (payload.regular_price !== undefined && !isValidPrice(payload.regular_price)) {
       return NextResponse.json(
         { success: false, message: "Prix régulier invalide (nombre positif, 2 décimales max)." },
         { status: 400 }
       );
     }
-    // sale_price : nombre positif, OU chaîne vide (comportement Woo existant :
-    // "" efface le prix promo).
+    // sale_price : nombre positif, OU chaîne vide ("" efface le prix promo —
+    // comportement conservé de l'ancien module).
     if (
       payload.sale_price !== undefined &&
       payload.sale_price !== "" &&
@@ -98,21 +100,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           { status: 400 }
         );
       }
+      payload.stock_quantity = n;
     }
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ success: false, message: "Aucun champ modifiable fourni." }, { status: 400 });
     }
 
-    const upstream = await wooFetch(`/products/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: payload,
-      timeout: TIMEOUTS.write,
-    });
-
-    if (upstream.ok) {
-      await recordAudit(session, "shop.product.update", `shop/produits/${id}`, { fields: Object.keys(payload) });
-    }
-    return await relayWooJson(upstream);
+    const updated = await updateProduct(id, payload as ProductPatch);
+    await recordAudit(session, "shop.product.update", `shop/produits/${id}`, { fields: Object.keys(payload) });
+    return NextResponse.json(updated);
   } catch (error) {
     return shopErrorResponse(error, "PATCH /api/shop/produits/[id]");
   }
