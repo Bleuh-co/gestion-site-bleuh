@@ -203,7 +203,7 @@ export async function listOrders(params: ListParams): Promise<ShopList<Doc>> {
   return paginate(rows, params.page, params.perPage ?? 20);
 }
 
-/** Détail d'une commande (docId = numéro SB-####). 404 si absente. */
+/** Détail d'une commande (docId = id Firestore auto-généré ; le numéro "SB-####" est le champ `number`). 404 si absente. */
 export async function getOrder(id: string): Promise<Doc> {
   const snap = await shopDb().collection(ORDERS).doc(id).get();
   if (!snap.exists) throw new ShopStoreError("Commande introuvable.", 404);

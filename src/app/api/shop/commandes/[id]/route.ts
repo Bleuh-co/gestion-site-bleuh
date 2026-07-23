@@ -12,7 +12,7 @@ import {
 export const runtime = "nodejs";
 
 // GET /api/shop/commandes/[id] — détail d'une commande (Firestore shop_orders,
-// docId = numéro SB-####).
+// docId = id Firestore auto-généré ; le numéro "SB-####" est le champ `number`).
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     await requireRead();

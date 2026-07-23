@@ -64,7 +64,7 @@ export interface ShopOrderAddress {
 export const ORDER_STATUSES = ["pending", "processing", "completed", "cancelled", "refunded"] as const;
 
 export interface ShopOrder {
-  /** docId Firestore = numéro de commande (SB-####). */
+  /** docId Firestore auto-généré (le numéro "SB-####" est le champ `number` ci-dessous). */
   id: string;
   number: string;
   status: string;
