@@ -120,7 +120,12 @@ export function shopDb(): AdminFirestore {
   if (globalThis.__gestiSiteBleuhShopDb) return globalThis.__gestiSiteBleuhShopDb;
 
   const projectId = process.env.SHOPBLEUH_PROJECT_ID || "antigravity-20260107";
-  const sa = getServiceAccount();
+  // ADC d'abord (et non le JSON FIREBASE_SERVICE_ACCOUNT_JSON) : le service
+  // tourne DANS le projet antigravity-20260107, son SA runtime a déjà accès à
+  // Firestore — aucun grant IAM cross-projet à maintenir. Le JSON reste le
+  // repli si un jour le service migre hors du projet (SHOPBLEUH_USE_SA=1).
+  const useSa = process.env.SHOPBLEUH_USE_SA === "1";
+  const sa = useSa ? getServiceAccount() : null;
   const APP_NAME = "shop-bleuh";
   const existing = getApps().find((a) => a.name === APP_NAME);
   const app =
