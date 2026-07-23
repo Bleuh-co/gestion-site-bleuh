@@ -66,6 +66,11 @@ export async function wooFetch(path: string, options: WooFetchOptions = {}): Pro
   const headers: Record<string, string> = {
     Authorization: buildAuthHeader(),
     Accept: "application/json",
+    // SiteGround (hébergeur de bleuh.shop) sert une page HTML anti-bot aux
+    // requêtes sans User-Agent de navigateur venant d'IP datacenter (Cloud
+    // Run) — un UA réaliste est requis pour recevoir du JSON.
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 GestionSiteBleuh/1.0",
   };
   let payload: string | undefined;
   if (body !== undefined) {
