@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
-import { shopFetch, fmtMoney, type ShopProduct, type WooList } from "./shop-types";
+import { shopFetch, fmtMoney, type ShopProduct, type ShopList } from "./shop-types";
 
 interface ShopProductsCardProps {
   canWrite: boolean;
@@ -16,8 +16,9 @@ interface EditDraft {
   status: string;
 }
 
-// Onglet Produits — table (image, nom, SKU, prix, stock, statut) + édition inline
-// prix/stock/statut si canWrite. GET /api/shop/produits ; PATCH /api/shop/produits/[id].
+// Onglet Produits — table (image GCS, nom, SKU, prix, stock, statut) + édition
+// inline prix/stock/statut si canWrite (catalogue maître Firestore).
+// GET /api/shop/produits ; PATCH /api/shop/produits/[id].
 export function ShopProductsCard({ canWrite }: ShopProductsCardProps) {
   const t = useT();
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -33,7 +34,7 @@ export function ShopProductsCard({ canWrite }: ShopProductsCardProps) {
     setError(null);
     try {
       const qs = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
-      const data = await shopFetch<WooList<ShopProduct>>(`/produits${qs}`);
+      const data = await shopFetch<ShopList<ShopProduct>>(`/produits${qs}`);
       setProducts(data.items);
     } catch (e) {
       setProducts([]);
@@ -65,9 +66,9 @@ export function ShopProductsCard({ canWrite }: ShopProductsCardProps) {
   const saveEdit = async (id: number) => {
     if (!draft) return;
     // Ne construire le PATCH qu'avec les champs réellement modifiés (vs la
-    // valeur d'origine du produit chargé) : bleuh.shop est la boutique LIVE,
-    // renvoyer des champs inchangés risque d'écraser une valeur mise à jour
-    // entre-temps ailleurs (last-write-wins).
+    // valeur d'origine du produit chargé) : le catalogue est la donnée MAÎTRE
+    // (Firestore) lue par le storefront — renvoyer des champs inchangés risque
+    // d'écraser une valeur mise à jour entre-temps ailleurs (last-write-wins).
     const original = products.find((p) => p.id === id);
     const origDraft: EditDraft = {
       regular_price: original?.regular_price ?? "",

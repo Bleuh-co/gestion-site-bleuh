@@ -15,7 +15,8 @@ interface ShopClientProps {
 
 type Tab = "apercu" | "produits" | "commandes" | "coupons";
 
-// Module Shop — gestion de bleuh.shop (WooCommerce) via proxy /api/shop/*.
+// Module Shop — gestion de la boutique Bleuh via l'API /api/shop/* (catalogue
+// MAÎTRE dans notre Firestore, collections shop_* — plus de WordPress/Woo).
 // L'autorisation réelle est appliquée côté serveur (requireRead/requireWrite
 // dans chaque route) — ce gate ne fait qu'adapter l'affichage.
 export function ShopClient({ role }: ShopClientProps) {

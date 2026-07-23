@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
-import { shopFetch, type ShopCoupon, type WooList } from "./shop-types";
+import { shopFetch, type ShopCoupon, type ShopList } from "./shop-types";
 
 interface ShopCouponsCardProps {
   canWrite: boolean;
@@ -16,7 +16,7 @@ export function ShopCouponsCard({ canWrite }: ShopCouponsCardProps) {
   const [coupons, setCoupons] = useState<ShopCoupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyCode, setBusyCode] = useState<string | null>(null);
 
   const [code, setCode] = useState("");
   const [discountType, setDiscountType] = useState("percent");
@@ -29,7 +29,7 @@ export function ShopCouponsCard({ canWrite }: ShopCouponsCardProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await shopFetch<WooList<ShopCoupon>>("/coupons");
+      const data = await shopFetch<ShopList<ShopCoupon>>("/coupons");
       setCoupons(data.items);
     } catch (e) {
       setCoupons([]);
@@ -87,15 +87,15 @@ export function ShopCouponsCard({ canWrite }: ShopCouponsCardProps) {
 
   const handleDelete = async (c: ShopCoupon) => {
     if (!window.confirm(t("shop.confirmDeleteCoupon"))) return;
-    setBusyId(c.id);
+    setBusyCode(c.code);
     try {
-      await shopFetch(`/coupons/${c.id}`, { method: "DELETE" });
+      await shopFetch(`/coupons/${encodeURIComponent(c.code)}`, { method: "DELETE" });
       toast.success(t("shop.couponDeleted"));
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("shop.errorGeneric"));
     } finally {
-      setBusyId(null);
+      setBusyCode(null);
     }
   };
 
@@ -137,7 +137,7 @@ export function ShopCouponsCard({ canWrite }: ShopCouponsCardProps) {
               </tr>
             ) : (
               coupons.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.code}>
                   <td className="px-3 py-2 font-medium">{c.code}</td>
                   <td className="px-3 py-2 text-chanv-terre/70">{typeLabel(c.discount_type)}</td>
                   <td className="px-3 py-2">
@@ -152,7 +152,7 @@ export function ShopCouponsCard({ canWrite }: ShopCouponsCardProps) {
                       <button
                         type="button"
                         className="btn-secondary text-rose-600"
-                        disabled={busyId !== null}
+                        disabled={busyCode !== null}
                         onClick={() => void handleDelete(c)}
                       >
                         {t("shop.delete")}

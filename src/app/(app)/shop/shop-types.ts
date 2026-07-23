@@ -1,15 +1,17 @@
-// Types Woo côté client + helper shopFetch — module Shop (proxy /api/shop/*
-// vers l'API REST WooCommerce v3). Calqué sur outils-types.ts.
+// Types côté client + helper shopFetch — module Shop (API /api/shop/* servie
+// par NOTRE catalogue maître Firestore, collections shop_* — voir
+// src/lib/shop-store.ts). Calqué sur outils-types.ts.
 
-/** Enveloppe de liste renvoyée par relayWooJson (voir src/lib/woo-proxy.ts). */
-export interface WooList<T> {
+/** Enveloppe de liste renvoyée par les routes /api/shop/* (voir src/lib/shop-store.ts). */
+export interface ShopList<T> {
   items: T[];
   total: number;
   totalPages: number;
 }
 
-export interface WooImage {
+export interface ShopImage {
   id?: number;
+  /** URL publique GCS (storage.googleapis.com/antigravity-20260107.firebasestorage.app/shopbleuh/…). */
   src: string;
   alt?: string;
 }
@@ -18,7 +20,7 @@ export interface ShopProduct {
   id: number;
   name: string;
   sku: string;
-  status: string; // publish | draft | pending | private
+  status: string; // publish | draft
   type: string; // simple | variable
   price: string;
   regular_price: string;
@@ -26,12 +28,13 @@ export interface ShopProduct {
   manage_stock: boolean;
   stock_quantity: number | null;
   stock_status: string; // instock | outofstock | onbackorder
-  images: WooImage[];
+  images: ShopImage[];
   permalink?: string;
 }
 
 export interface ShopOrderLineItem {
-  id: number;
+  id?: number;
+  product_id?: number;
   name: string;
   quantity: number;
   total: string;
@@ -39,7 +42,6 @@ export interface ShopOrderLineItem {
 }
 
 export interface ShopOrderCouponLine {
-  id: number;
   code: string;
   discount: string;
 }
@@ -58,8 +60,12 @@ export interface ShopOrderAddress {
   phone?: string;
 }
 
+/** Statuts de commande de NOTRE boutique (miroir de ORDER_STATUSES serveur). */
+export const ORDER_STATUSES = ["pending", "processing", "completed", "cancelled", "refunded"] as const;
+
 export interface ShopOrder {
-  id: number;
+  /** docId Firestore = numéro de commande (SB-####). */
+  id: string;
   number: string;
   status: string;
   currency: string;
@@ -73,13 +79,16 @@ export interface ShopOrder {
 }
 
 export interface ShopCoupon {
-  id: number;
+  /** Identifiant = code (docId Firestore, minuscules). */
   code: string;
-  discount_type: string; // percent | fixed_cart | fixed_product
+  discount_type: string; // percent | fixed_cart
   amount: string;
   usage_count: number;
   usage_limit: number | null;
   email_restrictions: string[];
+  free_shipping?: boolean;
+  date_expires?: string | null;
+  status?: string;
 }
 
 export interface ShopStats {
@@ -88,7 +97,13 @@ export interface ShopStats {
   topSellers: Array<{ name: string; product_id: number; quantity: number }>;
 }
 
-/** GET/PATCH/POST/DELETE JSON contre le proxy Next /api/shop — lève une erreur lisible. */
+/** pending → shop.orderStatusPending, etc. (clé i18n d'un statut de commande). */
+export function orderStatusLabelKey(status: string): string {
+  const clean = status.replace(/-/g, "");
+  return `shop.orderStatus${clean.charAt(0).toUpperCase()}${clean.slice(1)}`;
+}
+
+/** GET/PATCH/POST/DELETE JSON contre l'API Next /api/shop — lève une erreur lisible. */
 export async function shopFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api/shop${path}`, { cache: "no-store", ...options });
   const ct = res.headers.get("content-type") || "";

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n";
-import { shopFetch, fmtMoney, type ShopStats } from "./shop-types";
+import { shopFetch, fmtMoney, orderStatusLabelKey, type ShopStats } from "./shop-types";
 
-// Onglet Aperçu — compteurs de commandes par statut, ventes du mois, top vendeurs.
+// Onglet Aperçu — compteurs de commandes par statut, ventes du mois, top
+// vendeurs, agrégés depuis NOS commandes (Firestore shop_orders).
 // Lecture seule (GET /api/shop/stats, requireRead).
 export function ShopStatsCard() {
   const t = useT();
@@ -52,7 +53,7 @@ export function ShopStatsCard() {
           <ul className="space-y-1 text-sm">
             {totals.map((row) => (
               <li key={row.slug} className="flex justify-between">
-                <span className="text-chanv-terre/70">{row.name}</span>
+                <span className="text-chanv-terre/70">{t(orderStatusLabelKey(row.slug))}</span>
                 <span className="font-semibold">{row.total}</span>
               </li>
             ))}

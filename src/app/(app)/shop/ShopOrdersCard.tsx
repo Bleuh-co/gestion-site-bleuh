@@ -3,36 +3,37 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
-import { shopFetch, fmtMoney, fmtDate, type ShopOrder, type WooList } from "./shop-types";
+import {
+  shopFetch,
+  fmtMoney,
+  fmtDate,
+  orderStatusLabelKey,
+  ORDER_STATUSES,
+  type ShopOrder,
+  type ShopList,
+} from "./shop-types";
 
 interface ShopOrdersCardProps {
   canWrite: boolean;
 }
 
-const ORDER_STATUSES = ["pending", "processing", "on-hold", "completed", "cancelled", "refunded"] as const;
-
-function statusLabelKey(status: string): string {
-  // pending → shop.orderStatusPending ; on-hold → shop.orderStatusOnhold
-  const clean = status.replace(/-/g, "");
-  return `shop.orderStatus${clean.charAt(0).toUpperCase()}${clean.slice(1)}`;
-}
-
 // Onglet Commandes — table (n°, date, client, total, statut) + détail dépliable
-// (articles, adresse, coupons) + select statut si canWrite.
+// (articles, adresse, coupons) + select statut si canWrite. Commandes SB-####
+// de NOTRE boutique (Firestore shop_orders).
 // GET /api/shop/commandes ; PATCH /api/shop/commandes/[id].
 export function ShopOrdersCard({ canWrite }: ShopOrdersCardProps) {
   const t = useT();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<number | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await shopFetch<WooList<ShopOrder>>("/commandes");
+      const data = await shopFetch<ShopList<ShopOrder>>("/commandes");
       setOrders(data.items);
     } catch (e) {
       setOrders([]);
@@ -46,10 +47,10 @@ export function ShopOrdersCard({ canWrite }: ShopOrdersCardProps) {
     void load();
   }, []);
 
-  const changeStatus = async (id: number, status: string) => {
+  const changeStatus = async (id: string, status: string) => {
     setBusyId(id);
     try {
-      await shopFetch(`/commandes/${id}`, {
+      await shopFetch(`/commandes/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -161,12 +162,12 @@ function FragmentRow({
             >
               {ORDER_STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {t(statusLabelKey(s))}
+                  {t(orderStatusLabelKey(s))}
                 </option>
               ))}
             </select>
           ) : (
-            <span className="badge-neutral">{t(statusLabelKey(order.status))}</span>
+            <span className="badge-neutral">{t(orderStatusLabelKey(order.status))}</span>
           )}
         </td>
         <td className="px-3 py-2 text-right">
@@ -182,8 +183,8 @@ function FragmentRow({
               <div>
                 <h4 className="font-semibold mb-1">{t("shop.orderItems")}</h4>
                 <ul className="space-y-1">
-                  {order.line_items.map((it) => (
-                    <li key={it.id} className="flex justify-between gap-2">
+                  {order.line_items.map((it, i) => (
+                    <li key={it.id ?? `${it.name}-${i}`} className="flex justify-between gap-2">
                       <span className="text-chanv-terre/70">
                         {it.quantity} × {it.name}
                       </span>
@@ -218,7 +219,7 @@ function FragmentRow({
                 {order.coupon_lines?.length ? (
                   <ul className="space-y-1">
                     {order.coupon_lines.map((c) => (
-                      <li key={c.id} className="flex justify-between gap-2">
+                      <li key={c.code} className="flex justify-between gap-2">
                         <span className="text-chanv-terre/70">{c.code}</span>
                         <span>−{fmtMoney(c.discount, order.currency)}</span>
                       </li>

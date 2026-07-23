@@ -6,7 +6,7 @@ import type { Lang } from "./i18n";
 export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   fr: {
   "shop.pageTitle": "Shop",
-  "shop.pageIntro": "Gestion de la boutique bleuh.shop (produits, commandes, coupons).",
+  "shop.pageIntro": "Gestion de la boutique Bleuh — catalogue maître (produits, commandes, coupons).",
   "shop.tabApercu": "Aperçu",
   "shop.tabProduits": "Produits",
   "shop.tabCommandes": "Commandes",
@@ -56,7 +56,6 @@ export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   "shop.orderNote": "Note",
   "shop.orderStatusPending": "En attente",
   "shop.orderStatusProcessing": "En traitement",
-  "shop.orderStatusOnhold": "En pause",
   "shop.orderStatusCompleted": "Complétée",
   "shop.orderStatusCancelled": "Annulée",
   "shop.orderStatusRefunded": "Remboursée",
@@ -709,7 +708,7 @@ export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   },
   en: {
   "shop.pageTitle": "Shop",
-  "shop.pageIntro": "Manage the bleuh.shop store (products, orders, coupons).",
+  "shop.pageIntro": "Manage the Bleuh store — master catalog (products, orders, coupons).",
   "shop.tabApercu": "Overview",
   "shop.tabProduits": "Products",
   "shop.tabCommandes": "Orders",
@@ -759,7 +758,6 @@ export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   "shop.orderNote": "Note",
   "shop.orderStatusPending": "Pending",
   "shop.orderStatusProcessing": "Processing",
-  "shop.orderStatusOnhold": "On hold",
   "shop.orderStatusCompleted": "Completed",
   "shop.orderStatusCancelled": "Cancelled",
   "shop.orderStatusRefunded": "Refunded",
@@ -1412,7 +1410,7 @@ export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   },
   es: {
   "shop.pageTitle": "Shop",
-  "shop.pageIntro": "Gestión de la tienda bleuh.shop (productos, pedidos, cupones).",
+  "shop.pageIntro": "Gestión de la tienda Bleuh — catálogo maestro (productos, pedidos, cupones).",
   "shop.tabApercu": "Resumen",
   "shop.tabProduits": "Productos",
   "shop.tabCommandes": "Pedidos",
@@ -1462,7 +1460,6 @@ export const MODULE_MESSAGES: Record<Lang, Record<string, string>> = {
   "shop.orderNote": "Nota",
   "shop.orderStatusPending": "Pendiente",
   "shop.orderStatusProcessing": "En proceso",
-  "shop.orderStatusOnhold": "En espera",
   "shop.orderStatusCompleted": "Completado",
   "shop.orderStatusCancelled": "Cancelado",
   "shop.orderStatusRefunded": "Reembolsado",
