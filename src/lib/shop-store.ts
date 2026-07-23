@@ -125,17 +125,41 @@ export interface ProductPatch {
   stock_status?: string;
 }
 
+/** Champs prix/stock — voir le refus explicite ci-dessous pour les produits "variable". */
+const PRICE_STOCK_FIELDS = [
+  "regular_price",
+  "sale_price",
+  "manage_stock",
+  "stock_quantity",
+  "stock_status",
+] as const;
+
 /**
  * Met à jour un produit et RECALCULE les champs dérivés que le storefront lit :
  * `price` (prix effectif = promo si présente, sinon régulier), `on_sale`, et
  * `stock_status` si la quantité gérée passe à/de 0 (sauf statut fourni
  * explicitement). 404 si le produit n'existe pas.
+ *
+ * v1 EXPLICITE : un produit `type: "variable"` porte ses prix/stocks au
+ * niveau de ses variations embarquées (`variations[]`), que le checkout lit
+ * directement — un PATCH prix/stock ici ne les toucherait pas et créerait une
+ * incohérence silencieuse entre la fiche produit et ce qui est réellement
+ * vendu. Tant que l'édition par variation n'est pas implémentée, on refuse
+ * explicitement (409) plutôt que de laisser croire que la modification a été
+ * prise en compte.
  */
 export async function updateProduct(id: string, patch: ProductPatch): Promise<Doc> {
   const ref = shopDb().collection(PRODUCTS).doc(id);
   const snap = await ref.get();
   if (!snap.exists) throw new ShopStoreError("Produit introuvable.", 404);
   const current = snap.data() as Doc;
+
+  if (current.type !== "simple" && PRICE_STOCK_FIELDS.some((f) => patch[f] !== undefined)) {
+    throw new ShopStoreError(
+      "Produit variable — modifier les prix/stocks par variation n'est pas encore supporté.",
+      409
+    );
+  }
 
   const update: Doc = { ...patch };
   const next = { ...current, ...update };

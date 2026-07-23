@@ -267,6 +267,19 @@ export function ShopProductsCard({ canWrite }: ShopProductsCardProps) {
                               {t("shop.cancel")}
                             </button>
                           </div>
+                        ) : p.type !== "simple" ? (
+                          // Produit variable : prix/stock vivent au niveau des variations
+                          // embarquées (voir shop-store.ts updateProduct) — édition grisée
+                          // tant que l'édition par variation n'est pas implémentée (v1).
+                          <button
+                            type="button"
+                            className="btn-secondary opacity-50 cursor-not-allowed"
+                            disabled
+                            title={t("shop.variableProductLocked")}
+                            aria-disabled="true"
+                          >
+                            {t("shop.edit")}
+                          </button>
                         ) : (
                           <button type="button" className="btn-secondary" onClick={() => startEdit(p)}>
                             {t("shop.edit")}
