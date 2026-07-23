@@ -12,6 +12,8 @@ declare global {
   var __gestiSiteBleuhFirestoreSettingsApplied: boolean | undefined;
   // eslint-disable-next-line no-var
   var __gestiSiteBleuhChatDb: AdminFirestore | undefined;
+  // eslint-disable-next-line no-var
+  var __gestiSiteBleuhShopDb: AdminFirestore | undefined;
 }
 
 function getServiceAccount() {
@@ -98,5 +100,45 @@ export function chatDb(): AdminFirestore {
     );
   const db = getFirestore(app);
   globalThis.__gestiSiteBleuhChatDb = db;
+  return db;
+}
+
+/**
+ * Firestore de la boutique Bleuh — collections `shop_*` (produits, commandes,
+ * coupons, compteurs) du projet antigravity-20260107. Décision propriétaire
+ * (2026-07) : séparation totale de WordPress/WooCommerce — la gestion est le
+ * MAÎTRE du catalogue, données dans CE Firestore (partagé avec bleuh-chat,
+ * collections chat_* — on ne touche qu'aux collections préfixées shop_).
+ *
+ * Cible par défaut le projet antigravity-20260107 via une app Admin dédiée
+ * (le projet du FIREBASE_SERVICE_ACCOUNT_JSON de gestion n'est pas celui-là).
+ * SHOPBLEUH_PROJECT_ID permet d'overrider la cible (même pattern que
+ * BLEUHCHAT_PROJECT_ID/chatDb() ci-dessus). Le service account doit avoir un
+ * accès IAM cross-projet (Cloud Datastore User) sur le projet cible.
+ */
+export function shopDb(): AdminFirestore {
+  if (globalThis.__gestiSiteBleuhShopDb) return globalThis.__gestiSiteBleuhShopDb;
+
+  const projectId = process.env.SHOPBLEUH_PROJECT_ID || "antigravity-20260107";
+  const sa = getServiceAccount();
+  const APP_NAME = "shop-bleuh";
+  const existing = getApps().find((a) => a.name === APP_NAME);
+  const app =
+    existing ||
+    initializeApp(
+      sa
+        ? { credential: cert(sa), projectId }
+        : { credential: applicationDefault(), projectId },
+      APP_NAME
+    );
+  const db = getFirestore(app);
+  if (!existing) {
+    try {
+      db.settings({ ignoreUndefinedProperties: true });
+    } catch (e: any) {
+      console.warn("[firebase-admin] shopDb settings() ignoré:", e?.message);
+    }
+  }
+  globalThis.__gestiSiteBleuhShopDb = db;
   return db;
 }
