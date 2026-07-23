@@ -93,10 +93,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       );
     }
     if (payload.stock_quantity !== undefined) {
-      const n = Number(payload.stock_quantity);
-      if (!Number.isFinite(n) || n < 0) {
+      // Coercition contrôlée : seuls number/string non-vide sont candidats — un
+      // booléen coercerait sinon silencieusement en 0/1 (Number(true) === 1) et
+      // passerait la validation. Number.isInteger rejette ensuite les floats.
+      const raw = payload.stock_quantity;
+      const isNumericInput = typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "");
+      const n = isNumericInput ? Number(raw) : NaN;
+      if (!isNumericInput || !Number.isInteger(n) || n < 0) {
         return NextResponse.json(
-          { success: false, message: "Quantité de stock invalide (nombre positif)." },
+          { success: false, message: "Quantité de stock invalide (nombre entier positif)." },
           { status: 400 }
         );
       }
