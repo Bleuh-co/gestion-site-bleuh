@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { shopDb } from "./firebase-admin";
 
 // ─────────────────────────────────────────────────────────────
@@ -209,14 +210,133 @@ export async function getOrder(id: string): Promise<Doc> {
   return { ...(snap.data() as Doc), id: snap.id };
 }
 
-/** Change le statut d'une commande (statut déjà validé en liste blanche par la route). */
+/** Firestore document shapes touched by the pending→cancelled restock transaction (subset). */
+interface TxnVariation {
+  id: number;
+  stock_quantity?: number | null;
+  stock_status?: string;
+  [key: string]: unknown;
+}
+interface TxnProduct {
+  manage_stock?: boolean;
+  stock_quantity?: number | null;
+  stock_status?: string;
+  variations?: TxnVariation[];
+  [key: string]: unknown;
+}
+
+/**
+ * Change le statut d'une commande (statut déjà validé en liste blanche par la route).
+ *
+ * Cas particulier pending → cancelled : le stock est RÉSERVÉ (décrémenté) dès
+ * la création de la commande côté storefront (createShopOrder, ShopBleuh),
+ * AVANT tout paiement — c'est le remède documenté aux paiements Stripe
+ * abandonnés : si le client quitte sans payer, la commande reste "pending" et
+ * son stock reste bloqué tant qu'elle n'est pas explicitement annulée ici.
+ * Annuler une commande encore "pending" doit donc RESTITUER ce qu'elle avait
+ * réservé, dans UNE transaction Firestore :
+ *  - le stock de chaque line_item (variation embarquée si variation_id, sinon
+ *    produit simple géré en stock), repassant stock_status à "instock" si la
+ *    quantité restituée est > 0 ;
+ *  - le usage_count de chaque coupon de coupon_lines, plancher 0 (jamais négatif).
+ * Toute autre transition (y compris {processing,completed,…} → cancelled, où
+ * la commande a déjà été honorée/payée) reste un simple update de statut —
+ * pas de restock, ce n'est pas le cas visé par ce remède.
+ */
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Doc> {
   const ref = shopDb().collection(ORDERS).doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) throw new ShopStoreError("Commande introuvable.", 404);
-  const update = { status, date_modified: new Date().toISOString() };
-  await ref.update(update);
-  return { ...(snap.data() as Doc), ...update, id: snap.id };
+
+  if (status !== "cancelled") {
+    const snap = await ref.get();
+    if (!snap.exists) throw new ShopStoreError("Commande introuvable.", 404);
+    const update = { status, date_modified: new Date().toISOString() };
+    await ref.update(update);
+    return { ...(snap.data() as Doc), ...update, id: snap.id };
+  }
+
+  return shopDb().runTransaction(async (txn) => {
+    // --- READS (all before any write, per Firestore transaction rules) ---
+    const snap = await txn.get(ref);
+    if (!snap.exists) throw new ShopStoreError("Commande introuvable.", 404);
+    const order = snap.data() as Doc;
+    const update = { status, date_modified: new Date().toISOString() };
+
+    if (order.status !== "pending") {
+      // Commande déjà payée/traitée (ou déjà annulée) : rien à restituer.
+      txn.update(ref, update);
+      return { ...order, ...update, id: snap.id };
+    }
+
+    const lineItems = Array.isArray(order.line_items) ? (order.line_items as Doc[]) : [];
+    const productIds = [
+      ...new Set(
+        lineItems
+          .map((li) => Number(li.product_id))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      ),
+    ];
+    const productSnaps = new Map<number, TxnProduct>();
+    for (const pid of productIds) {
+      const pSnap = await txn.get(shopDb().collection(PRODUCTS).doc(String(pid)));
+      if (pSnap.exists) productSnaps.set(pid, pSnap.data() as TxnProduct);
+    }
+
+    const couponLines = Array.isArray(order.coupon_lines) ? (order.coupon_lines as Doc[]) : [];
+    const couponCodes = [
+      ...new Set(
+        couponLines.map((c) => String(c.code ?? "").trim().toLowerCase()).filter(Boolean)
+      ),
+    ];
+    // code → usage_count actuel (lu ici, décrémenté plus bas avant écriture).
+    const couponUsageCounts = new Map<string, number>();
+    for (const code of couponCodes) {
+      const cSnap = await txn.get(shopDb().collection(COUPONS).doc(code));
+      if (cSnap.exists) couponUsageCounts.set(code, Number(cSnap.get("usage_count")) || 0);
+    }
+
+    // --- Compute restock per product (in-memory mutation; one write per product) ---
+    const productUpdates = new Map<number, Record<string, unknown>>();
+    for (const li of lineItems) {
+      const pid = Number(li.product_id);
+      const qty = Number(li.quantity) || 0;
+      if (!Number.isFinite(pid) || pid <= 0 || qty <= 0) continue;
+      const product = productSnaps.get(pid);
+      if (!product) continue; // produit supprimé depuis la commande : rien à restituer
+
+      const variationId = Number(li.variation_id) || 0;
+      if (variationId) {
+        // Array embarqué : FieldValue.increment ne s'applique pas à un champ
+        // niché dans un élément d'array — on mute en mémoire et on réécrit le
+        // tableau complet, comme au débit (checkout-order.ts, ShopBleuh).
+        const variations = (product.variations ?? []) as TxnVariation[];
+        const variation = variations.find((v) => v.id === variationId);
+        if (!variation || variation.stock_quantity == null) continue; // stock non géré pour cette variation
+        const restored = variation.stock_quantity + qty;
+        variation.stock_quantity = restored;
+        if (restored > 0) variation.stock_status = "instock";
+        productUpdates.set(pid, { ...(productUpdates.get(pid) ?? {}), variations });
+      } else if (product.manage_stock === true && product.stock_quantity != null) {
+        // Champ scalaire top-level : incrément atomique.
+        const restored = product.stock_quantity + qty;
+        const fieldUpdate: Record<string, unknown> = { stock_quantity: FieldValue.increment(qty) };
+        if (restored > 0) fieldUpdate.stock_status = "instock";
+        productUpdates.set(pid, { ...(productUpdates.get(pid) ?? {}), ...fieldUpdate });
+      }
+    }
+
+    // --- WRITES ---
+    for (const [pid, upd] of productUpdates) {
+      txn.update(shopDb().collection(PRODUCTS).doc(String(pid)), upd);
+    }
+    for (const [code, usageCount] of couponUsageCounts) {
+      txn.update(shopDb().collection(COUPONS).doc(code), {
+        usage_count: Math.max(0, usageCount - 1),
+      });
+    }
+    txn.update(ref, update);
+
+    return { ...order, ...update, id: snap.id };
+  });
 }
 
 // ── Coupons ─────────────────────────────────────────────────
