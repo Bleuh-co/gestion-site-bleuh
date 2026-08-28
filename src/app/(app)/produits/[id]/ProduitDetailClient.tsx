@@ -219,6 +219,7 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
             <Field label="Format" value={product.formatSlug} />
             <Field label="Poids" value={product.weight} />
             <Field label="THC" value={product.thc} />
+            <Field label="CBD" value={product.cbd} />
             <Field
               label="THC min / max"
               value={product.thcMin != null || product.thcMax != null ? `${product.thcMin ?? "—"} / ${product.thcMax ?? "—"}` : null}

@@ -30,6 +30,9 @@ function toFormState(p?: Product | null) {
     thc: p?.thc ?? "",
     thcMin: p?.thcMin ?? null,
     thcMax: p?.thcMax ?? null,
+    cbd: p?.cbd ?? "",
+    cbdMin: p?.cbdMin ?? null,
+    cbdMax: p?.cbdMax ?? null,
     provinces: (p?.provinces ?? []) as ProductProvince[],
     isNew: p?.isNew ?? false,
     isWebOnly: p?.isWebOnly ?? false,
@@ -76,6 +79,9 @@ function buildInput(f: ProductFormState): ProductInput {
     thc: f.thc.trim(),
     thcMin: f.thcMin,
     thcMax: f.thcMax,
+    cbd: f.cbd.trim(),
+    cbdMin: f.cbdMin,
+    cbdMax: f.cbdMax,
     provinces: f.provinces,
     isNew: f.isNew,
     isWebOnly: f.isWebOnly,
@@ -323,6 +329,32 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                 className="input"
                 value={f.thcMax ?? ""}
                 onChange={(e) => update("thcMax", e.target.value === "" ? null : Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">CBD (étiquette)</label>
+            <input className="input" value={f.cbd} onChange={(e) => update("cbd", e.target.value)} placeholder="ex. CBD 20-26%" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label">CBD min</label>
+              <input
+                type="number"
+                step="0.01"
+                className="input"
+                value={f.cbdMin ?? ""}
+                onChange={(e) => update("cbdMin", e.target.value === "" ? null : Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="label">CBD max</label>
+              <input
+                type="number"
+                step="0.01"
+                className="input"
+                value={f.cbdMax ?? ""}
+                onChange={(e) => update("cbdMax", e.target.value === "" ? null : Number(e.target.value))}
               />
             </div>
           </div>

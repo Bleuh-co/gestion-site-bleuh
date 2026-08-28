@@ -93,6 +93,10 @@ export interface Product {
   thc: string;
   thcMin: number | null;
   thcMax: number | null;
+  /** Pastille CBD, ex. "CBD 20-26%". Miroir du THC (cf. Gestion Produits). */
+  cbd: string;
+  cbdMin: number | null;
+  cbdMax: number | null;
   provinces: ProductProvince[];
   isNew: boolean;
   isWebOnly: boolean;
@@ -134,6 +138,9 @@ export interface ProductInput {
   thc: string;
   thcMin: number | null;
   thcMax: number | null;
+  cbd: string;
+  cbdMin: number | null;
+  cbdMax: number | null;
   provinces: ProductProvince[]; // requis, ≥1
   isNew: boolean;
   isWebOnly: boolean;

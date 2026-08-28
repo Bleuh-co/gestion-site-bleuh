@@ -161,6 +161,12 @@ export function validateProductInput(raw: unknown): ProductInput {
     thc: typeof p.thc === "string" ? p.thc : "",
     thcMin: numOrNull(p.thcMin),
     thcMax: numOrNull(p.thcMax),
+    // PUT /api/produits/[id] fait un set() TOTAL du document : sans ces trois
+    // lignes, éditer un produit ici effacerait le CBD saisi dans Gestion
+    // Produits (le champ ne serait tout simplement pas réécrit).
+    cbd: typeof p.cbd === "string" ? p.cbd : "",
+    cbdMin: numOrNull(p.cbdMin),
+    cbdMax: numOrNull(p.cbdMax),
     provinces,
     isNew: !!p.isNew,
     isWebOnly: !!p.isWebOnly,
