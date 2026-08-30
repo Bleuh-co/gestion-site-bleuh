@@ -38,6 +38,7 @@ export function Sidebar() {
       // Masqué pour Bleuh — tableau de bord business (trafic/conversions) réservé à la
       // future app Maison d'Herbes (MDH). Code/page/routes conservés, dé-commenter pour réactiver.
       // links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
+      links.push({ label: t("nav.acquisition"), icon: "🧭", href: "/acquisition", mobileOnly: true });
       links.push({ label: t("nav.seo"), icon: "🔍", href: "/seo", mobileOnly: true });
     }
     if (isAdmin) {

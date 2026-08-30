@@ -45,6 +45,10 @@ export function NavBar() {
     // Masqué pour Bleuh — tableau de bord business (trafic/conversions) réservé à la
     // future app Maison d'Herbes (MDH). Code/page/routes conservés, dé-commenter pour réactiver.
     // { href: "/analyse-ceo", label: t("nav.analyseCeo"), show: isRead },
+    // Acquisition, lui, est bien destiné à Bleuh : il ne parle QUE de trafic
+    // (provenance, temps passé, clics sortants vers les détaillants) et
+    // n'affiche aucun chiffre de vente, que ce site vitrine n'a pas.
+    { href: "/acquisition", label: t("nav.acquisition"), show: isRead },
     { href: "/seo", label: t("nav.seo"), show: isRead },
     { href: "/audit", label: t("nav.audit"), show: isAdmin },
     { href: "/aide", label: t("nav.aide"), show: isRead },
