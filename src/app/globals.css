@@ -326,6 +326,63 @@ h4 {
     display: none !important;
     pointer-events: none !important;
   }
+
+  /* --- TABLEAUX DÉFILANTS ---------------------------------------------
+     Piège corrigé ici : un `overflow-x-auto` autour d'une `<table w-full>`
+     ne défile JAMAIS. `w-full` contraint la table à la largeur du parent,
+     donc elle ne déborde pas — elle s'écrase (9 colonnes dans 260 px).
+     `.table-scroll` + `.table-wide` rétablit un vrai défilement : la table
+     réclame une largeur plancher, le conteneur la fait glisser au doigt.
+     Sur desktop `min-width` est sans effet (100 % > 640 px).            */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* le geste horizontal ne doit pas déclencher le retour arrière iOS */
+    overscroll-behavior-x: contain;
+  }
+  .table-wide {
+    width: 100%;
+    min-width: 640px;
+  }
+  .table-xwide {
+    width: 100%;
+    min-width: 860px;
+  }
+
+  /* --- BARRE DE NAVIGATION DÉFILANTE (mobile) -------------------------
+     Une seule rangée qui glisse, au lieu d'un `flex-wrap` qui empilait
+     jusqu'à 6 lignes de pastilles (~250 px collants sur chaque écran).  */
+  .nav-scroller {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .nav-scroller::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-scroller > * {
+    flex: 0 0 auto;
+  }
+
+  /* --- PASTILLE CLIQUABLE ---------------------------------------------
+     `.badge` fait 20 px de haut : lisible, mais intouchable au pouce.
+     `.chip` est sa version interactive, dimensionnée pour le doigt.     */
+  .chip {
+    @apply inline-flex items-center rounded-full px-3 text-xs font-semibold transition-all;
+    min-height: 34px;
+    background: var(--chanv-fibre);
+    color: var(--chanv-terre);
+  }
+  .chip:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+  .chip-active {
+    background: var(--chanv-terre);
+    color: var(--chanv-beige);
+  }
 }
 
 /* Mobile header adjustments */
@@ -347,6 +404,68 @@ h4 {
   .avatar-burger-icon {
     width: 14px;
     gap: 3px;
+  }
+
+  /* Le biseau du header passe de 100 à 60 px ci-dessus : la surface qui
+     le chevauche doit remonter d'autant moins, sinon décalage visible. */
+  .chanv-surface {
+    margin-top: -24px;
+    padding-top: 24px;
+  }
+
+  /* Un tiroir de 300 px sur un écran de 320 px déborderait. */
+  .sidebar-panel {
+    max-width: 100%;
+  }
+
+  /* Cible tactile plancher (~40 px) pour TOUS les boutons du design
+     system, y compris ceux écrits en `px-2 py-1 text-xs` qui tombaient
+     à 24 px de haut. Aucun effet sur desktop. */
+  .btn {
+    min-height: 40px;
+  }
+
+  /* 11 px + 1 px d'interlettrage : « Lieu de culture (FR) » tenait sur
+     3 lignes au-dessus d'un champ de 85 px. On récupère la largeur. */
+  .label {
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+
+  /* 32 px de padding en dur = 64 px mangés sur 375. */
+  .section-card {
+    padding: 18px;
+  }
+}
+
+/* ============================================================
+   RESPIRATION MOBILE — hors @layer, donc prioritaire sur les
+   utilitaires Tailwind (les couches gagnent sur la spécificité).
+   27 écrans utilisent `<main class="mx-auto max-w-5xl p-6">` sans
+   la moindre variante mobile : 32 px de padding du shell + 48 px
+   du main + 32 px de la carte = 38 % d'un iPhone SE en marges.
+   Une règle ici vaut 27 fichiers modifiés.
+   ============================================================ */
+@media (max-width: 639px) {
+  main.mx-auto {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .card.p-6,
+  .card.p-8 {
+    padding: 16px;
+  }
+  .card.p-4 {
+    padding: 12px;
+  }
+
+  /* iOS Safari zoome le viewport dès qu'un champ focalisé est sous
+     16 px. Tous les `.input` étaient à 14 px → zoom à chaque saisie,
+     puis dézoom manuel. C'est LA nuisance mobile n°1 du back-office. */
+  .input,
+  select.input,
+  textarea.input {
+    font-size: 16px;
   }
 }
 

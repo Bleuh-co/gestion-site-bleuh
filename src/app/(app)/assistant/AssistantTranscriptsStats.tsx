@@ -71,8 +71,8 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
           Coût du jour : {(stats?.todayCostUsd ?? 0).toFixed(2)} $ · Taux d&apos;escalade : {stats?.escalation?.escalated ?? 0}/
           {stats?.escalation?.total ?? 0} ({escalationPct} %)
         </p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="table-scroll">
+          <table className="table-wide text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
                 <th className="px-4 py-2">Date</th>
@@ -103,8 +103,8 @@ export function AssistantTranscriptsStats({ active }: AssistantTranscriptsStatsP
 
       <div className="card p-4">
         <h3 className="font-semibold mb-3">Transcripts récents</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="table-scroll">
+          <table className="table-xwide text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
                 <th className="px-4 py-2">Date</th>

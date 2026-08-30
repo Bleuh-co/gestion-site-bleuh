@@ -80,7 +80,7 @@ export function BarChart({
               x={PAD.left - 6}
               y={g.py + 3}
               textAnchor="end"
-              fontSize={10}
+              fontSize={13}
               style={{ fill: "var(--chart-axis)" }}
             >
               {formatValue(g.v)}
@@ -105,6 +105,7 @@ export function BarChart({
                 opacity={hover === null || hover === i ? 1 : 0.55}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
+                onTouchStart={() => setHover(i)}
                 style={{ fill: color, cursor: "pointer" }}
               />
               {showLabel && (
@@ -112,7 +113,7 @@ export function BarChart({
                   x={bx + barW / 2}
                   y={height - 24}
                   textAnchor="end"
-                  fontSize={10}
+                  fontSize={13}
                   style={{ fill: "var(--chart-axis)" }}
                   transform={`rotate(-40 ${bx + barW / 2} ${height - 24})`}
                 >
@@ -130,17 +131,17 @@ export function BarChart({
             const bh = (d.value / max) * plotH;
             const by = PAD.top + plotH - bh;
             const text = `${d.label} · ${formatValue(d.value)}${yUnit ?? ""}`;
-            const w = Math.max(70, text.length * 6.2);
+            const w = Math.max(80, text.length * 7.9);
             const left = Math.min(Math.max(bx - w / 2, 2), VB_W - w - 2);
-            const top = by - 30 < 4 ? by + 10 : by - 30;
+            const top = by - 34 < 4 ? by + 10 : by - 34;
             return (
               <g pointerEvents="none">
-                <rect x={left} y={top} width={w} height={22} rx={5} fill="#282828" />
+                <rect x={left} y={top} width={w} height={26} rx={5} fill="#282828" />
                 <text
                   x={left + w / 2}
-                  y={top + 15}
+                  y={top + 17.5}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={14}
                   fill="#fff"
                 >
                   {text}

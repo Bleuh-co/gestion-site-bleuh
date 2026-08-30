@@ -171,7 +171,7 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
           <h1 className="text-2xl font-bold">{product.name?.fr || "(sans nom)"}</h1>
           <p className="text-sm text-chanv-terre/60">{product.name?.en}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className={`badge ${statusBadgeClass(product.status)}`}>{STATUS_LABELS[product.status] ?? product.status}</span>
           {canWrite && (
             <>

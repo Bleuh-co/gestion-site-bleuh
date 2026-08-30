@@ -100,7 +100,7 @@ export function LineChart({
               x={PAD.left - 6}
               y={g.py + 3}
               textAnchor="end"
-              fontSize={10}
+              fontSize={13}
               style={{ fill: "var(--chart-axis)" }}
             >
               {formatValue(g.v)}
@@ -117,7 +117,7 @@ export function LineChart({
               x={x(i)}
               y={height - 8}
               textAnchor="middle"
-              fontSize={10}
+              fontSize={13}
               style={{ fill: "var(--chart-axis)" }}
             >
               {lab}
@@ -151,6 +151,7 @@ export function LineChart({
                     r={hover && hover.s === si && hover.i === i ? 4.5 : 2.5}
                     onMouseEnter={() => setHover({ s: si, i })}
                     onMouseLeave={() => setHover(null)}
+                    onTouchStart={() => setHover({ s: si, i })}
                     style={{ fill: s.color, cursor: "pointer" }}
                   />
                 )
@@ -167,24 +168,24 @@ export function LineChart({
             const px = x(hover.i);
             const py = y(v);
             const text = `${labels[hover.i]} · ${formatValue(v)}${yUnit ?? ""}`;
-            const w = Math.max(70, text.length * 6.2);
+            const w = Math.max(80, text.length * 7.9);
             const left = Math.min(Math.max(px - w / 2, 2), VB_W - w - 2);
-            const top = py - 30 < 4 ? py + 10 : py - 30;
+            const top = py - 34 < 4 ? py + 10 : py - 34;
             return (
               <g pointerEvents="none">
                 <rect
                   x={left}
                   y={top}
                   width={w}
-                  height={22}
+                  height={26}
                   rx={5}
                   fill="#282828"
                 />
                 <text
                   x={left + w / 2}
-                  y={top + 15}
+                  y={top + 17.5}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={14}
                   fill="#fff"
                 >
                   {text}

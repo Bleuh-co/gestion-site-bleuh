@@ -39,8 +39,8 @@ export function OutilsSyncCard({ heartbeats, onAfterRun }: OutilsSyncCardProps) 
 
       <OutilsResultBanner result={result} />
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-scroll">
+        <table className="table-wide text-sm">
           <thead>
             <tr className="text-left border-b border-chanv-fibre">
               <th className="px-4 py-2">Cible</th>
