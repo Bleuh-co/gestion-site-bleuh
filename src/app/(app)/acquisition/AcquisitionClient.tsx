@@ -178,7 +178,7 @@ export function AcquisitionClient() {
               plutôt que d'espérer que l'intitulé des colonnes suffise. */}
           <div className="card p-3 mb-4 text-xs text-chanv-terre/70">{t("acq.vitrineNote")}</div>
 
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <KpiCard
               label={t("acq.kpi.sessions")}
               value={data.trafficPending ? "—" : nf.format(data.totals.sessions)}
@@ -246,112 +246,118 @@ export function AcquisitionClient() {
             </div>
           </section>
 
-          <section className="card p-4 mb-6 overflow-x-auto">
+          <section className="card p-4 mb-6">
             <h2 className="text-base font-semibold mb-1 m-0">{t("acq.channels.title")}</h2>
             <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.channels.help")}</p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-chanv-fibre">
-                  <th className="py-2 pr-3">{t("acq.col.channel")}</th>
-                  <th className="py-2 px-3 text-right">{t("acq.col.sessions")}</th>
-                  <th className="py-2 px-3 text-right">{t("acq.col.pageViews")}</th>
-                  <th className="py-2 px-3 text-right">{t("acq.col.retailerClicks")}</th>
-                  <th className="py-2 pl-3 text-right">{t("acq.col.clickRate")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.channels.map((c) => (
-                  <tr key={c.channel} className="border-b border-chanv-fibre/60 last:border-0">
-                    <td className="py-2 pr-3 font-medium">{t(`acq.channel.${c.channel}`)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.sessions)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.pageViews)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">
-                      {nf.format(c.retailerClicks)}
-                    </td>
-                    {/* `null` (aucune session mesurée) ≠ 0 % : ne pas laisser
-                        croire que le canal ne produit aucun clic. */}
-                    <td className="py-2 pl-3 text-right tabular-nums">
-                      {c.clickRate !== null ? pf.format(c.clickRate) : "—"}
-                    </td>
+            <div className="table-scroll">
+              <table className="table-wide text-sm">
+                <thead>
+                  <tr className="text-left border-b border-chanv-fibre">
+                    <th className="py-2 pr-3">{t("acq.col.channel")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.col.sessions")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.col.pageViews")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.col.retailerClicks")}</th>
+                    <th className="py-2 pl-3 text-right">{t("acq.col.clickRate")}</th>
                   </tr>
-                ))}
-                {data.channels.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
-                      {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.channels.map((c) => (
+                    <tr key={c.channel} className="border-b border-chanv-fibre/60 last:border-0">
+                      <td className="py-2 pr-3 font-medium">{t(`acq.channel.${c.channel}`)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.sessions)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.pageViews)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">
+                        {nf.format(c.retailerClicks)}
+                      </td>
+                      {/* `null` (aucune session mesurée) ≠ 0 % : ne pas laisser
+                          croire que le canal ne produit aucun clic. */}
+                      <td className="py-2 pl-3 text-right tabular-nums">
+                        {c.clickRate !== null ? pf.format(c.clickRate) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.channels.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
+                        {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          <section className="card p-4 mb-6 overflow-x-auto">
+          <section className="card p-4 mb-6">
             <h2 className="text-base font-semibold mb-1 m-0">{t("acq.campaigns.title")}</h2>
             <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.campaigns.help")}</p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-chanv-fibre">
-                  <th className="py-2 pr-3">{t("acq.col.source")}</th>
-                  <th className="py-2 px-3">{t("acq.col.medium")}</th>
-                  <th className="py-2 px-3">{t("acq.col.campaign")}</th>
-                  <th className="py-2 px-3 text-right">{t("acq.col.sessions")}</th>
-                  <th className="py-2 pl-3 text-right">{t("acq.col.retailerClicks")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.campaigns.slice(0, 20).map((c) => (
-                  <tr key={c.key} className="border-b border-chanv-fibre/60 last:border-0">
-                    <td className="py-2 pr-3">{c.source}</td>
-                    <td className="py-2 px-3 text-chanv-terre/70">{c.medium}</td>
-                    <td className="py-2 px-3">{c.campaign}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.sessions)}</td>
-                    <td className="py-2 pl-3 text-right tabular-nums">
-                      {nf.format(c.retailerClicks)}
-                    </td>
+            <div className="table-scroll">
+              <table className="table-wide text-sm">
+                <thead>
+                  <tr className="text-left border-b border-chanv-fibre">
+                    <th className="py-2 pr-3">{t("acq.col.source")}</th>
+                    <th className="py-2 px-3">{t("acq.col.medium")}</th>
+                    <th className="py-2 px-3">{t("acq.col.campaign")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.col.sessions")}</th>
+                    <th className="py-2 pl-3 text-right">{t("acq.col.retailerClicks")}</th>
                   </tr>
-                ))}
-                {data.campaigns.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
-                      {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.campaigns.slice(0, 20).map((c) => (
+                    <tr key={c.key} className="border-b border-chanv-fibre/60 last:border-0">
+                      <td className="py-2 pr-3">{c.source}</td>
+                      <td className="py-2 px-3 text-chanv-terre/70">{c.medium}</td>
+                      <td className="py-2 px-3">{c.campaign}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{nf.format(c.sessions)}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums">
+                        {nf.format(c.retailerClicks)}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.campaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
+                        {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          <section className="card p-4 overflow-x-auto">
+          <section className="card p-4">
             <h2 className="text-base font-semibold mb-1 m-0">{t("acq.pages.title")}</h2>
             <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.pages.help")}</p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-chanv-fibre">
-                  <th className="py-2 pr-3">{t("acq.col.page")}</th>
-                  <th className="py-2 px-3 text-right">{t("acq.col.views")}</th>
-                  <th className="py-2 pl-3 text-right">{t("acq.col.avgTime")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.pages.slice(0, 20).map((p) => (
-                  <tr key={p.path} className="border-b border-chanv-fibre/60 last:border-0">
-                    <td className="py-2 pr-3 font-mono text-xs">{p.path}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">{nf.format(p.views)}</td>
-                    <td className="py-2 pl-3 text-right tabular-nums">
-                      {formatDuration(p.averageEngagementMs)}
-                    </td>
+            <div className="table-scroll">
+              <table className="table-wide text-sm">
+                <thead>
+                  <tr className="text-left border-b border-chanv-fibre">
+                    <th className="py-2 pr-3">{t("acq.col.page")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.col.views")}</th>
+                    <th className="py-2 pl-3 text-right">{t("acq.col.avgTime")}</th>
                   </tr>
-                ))}
-                {data.pages.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="py-6 text-center text-chanv-terre/40">
-                      {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.pages.slice(0, 20).map((p) => (
+                    <tr key={p.path} className="border-b border-chanv-fibre/60 last:border-0">
+                      <td className="py-2 pr-3 font-mono text-xs">{p.path}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{nf.format(p.views)}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums">
+                        {formatDuration(p.averageEngagementMs)}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.pages.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-chanv-terre/40">
+                        {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <p className="text-xs text-chanv-terre/50 mt-4">

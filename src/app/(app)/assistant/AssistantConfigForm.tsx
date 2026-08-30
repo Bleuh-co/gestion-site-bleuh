@@ -158,7 +158,7 @@ export function AssistantConfigForm({
       </div>
 
       <div className="card p-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <span className="label mb-0">FAQ</span>
           <button type="button" className="btn-secondary" onClick={addFaq}>
             + Ajouter une question

@@ -119,8 +119,8 @@ export function SnapshotsPanel({ canWrite }: SnapshotsPanelProps) {
           Aucune copie enregistrée pour le moment.
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="card table-scroll">
+          <table className="table-wide text-sm">
             <thead>
               <tr className="text-left text-chanv-terre/60 border-b border-black/5">
                 <th className="px-4 py-3 font-semibold">Nom</th>

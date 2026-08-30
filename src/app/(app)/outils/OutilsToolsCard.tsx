@@ -178,7 +178,9 @@ export function OutilsToolsCard() {
           </div>
           <OutilsResultBanner result={mlResult} />
           {mlPreviewHtml && (
-            <iframe title="Aperçu MailerLite" srcDoc={mlPreviewHtml} className="w-full h-96 rounded-xl border border-chanv-fibre bg-white" />
+            <div className="overflow-auto rounded-xl border border-chanv-fibre bg-white">
+              <iframe title="Aperçu MailerLite" srcDoc={mlPreviewHtml} className="w-full h-[70vh] sm:h-96 bg-white" />
+            </div>
           )}
         </div>
 

@@ -43,8 +43,8 @@ export function AssistantSelftest({ report, busy, result, canWrite, onRun }: Ass
       )}
 
       {report && report.details.length > 0 && (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="card table-scroll">
+          <table className="table-wide text-sm">
             <thead>
               <tr className="text-left border-b border-chanv-fibre">
                 <th className="px-4 py-2">ID</th>

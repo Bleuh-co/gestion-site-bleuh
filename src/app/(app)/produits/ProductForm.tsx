@@ -387,7 +387,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">Détails produit</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {(Object.keys(f.details) as (keyof ProductFormState["details"])[]).map((field) => (
-            <div key={field} className="grid grid-cols-2 gap-2">
+            <div key={field} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="label capitalize">{detailLabel(field)} (FR)</label>
                 <input className="input" value={f.details[field].fr} onChange={(e) => updateDetail(field, "fr", e.target.value)} />
@@ -445,7 +445,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         </div>
       </section>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? "Enregistrement…" : submitLabel}
         </button>
