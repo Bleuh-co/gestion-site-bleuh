@@ -482,8 +482,8 @@ export function SeoClient({ role }: SeoClientProps) {
           {/* Tableau par page */}
           <section className="card p-4">
             <h2 className="text-lg font-semibold mb-3">Détail par page</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+            <div className="table-scroll">
+              <table className="table-xwide text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-chanv-fibre text-xs uppercase tracking-wide text-chanv-terre/60">
                     <th className="py-2 pr-3 font-semibold">URL</th>

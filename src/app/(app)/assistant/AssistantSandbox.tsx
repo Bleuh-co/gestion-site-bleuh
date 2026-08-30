@@ -191,9 +191,9 @@ export function AssistantSandbox({ config, canWrite }: AssistantSandboxProps) {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
-          className="input"
+          className="input flex-1 min-w-0"
           placeholder="Écrire un message de test…"
           value={input}
           disabled={!canWrite || busy}

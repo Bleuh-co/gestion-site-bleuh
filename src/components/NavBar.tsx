@@ -54,29 +54,38 @@ export function NavBar() {
     { href: "/aide", label: t("nav.aide"), show: isRead },
   ];
 
+  const visibles = links.filter((l) => l.show);
+
   if (framed) {
     // Contrat d'embed Gandalf — nav interne d'embed (modèle Gestion-Parc-It /
     // XeroFacture) : barre claire sticky sur fond parchemin, pastilles blanches
     // arrondies, pastille active or. Le hub fournit logo/titre/profil.
+    //
+    // Mobile : `nav-scroller` = UNE rangée qui glisse au doigt. En
+    // `flex-wrap`, les pastilles s'empilaient sur plusieurs rangées d'une
+    // barre COLLANTE, présente sur chaque écran. Le wrap ne reprend qu'à
+    // partir de `md`, où tout tient en une ou deux rangées.
     return (
-      <nav id="gandalf-embed-nav" className="sticky top-0 z-40 flex flex-wrap items-center gap-1.5 bg-[#F4EFE3] px-4 pb-1 pt-3">
-        {links
-          .filter((l) => l.show)
-          .map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[12.5px] font-semibold transition-colors",
-                isActive(pathname, l.href)
-                  ? "border-[#A8863F] bg-[#A8863F] font-bold text-white"
-                  : "border-black/10 bg-white text-black/60 hover:border-[#A8863F]/40 hover:text-[#282828]",
-              )}
-            >
-              {l.icon}
-              <span>{l.label}</span>
-            </Link>
-          ))}
+      <nav
+        id="gandalf-embed-nav"
+        className="nav-scroller sticky top-0 z-40 items-center gap-1.5 bg-[#F4EFE3] px-4 pb-1.5 pt-3 md:flex-wrap"
+      >
+        {visibles.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            aria-current={isActive(pathname, l.href) ? "page" : undefined}
+            className={cn(
+              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2.5 text-[12.5px] font-semibold transition-colors",
+              isActive(pathname, l.href)
+                ? "border-[#A8863F] bg-[#A8863F] font-bold text-white"
+                : "border-black/10 bg-white text-black/60 hover:border-[#A8863F]/40 hover:text-[#282828]",
+            )}
+          >
+            {l.icon}
+            <span>{l.label}</span>
+          </Link>
+        ))}
       </nav>
     );
   }
@@ -106,14 +115,17 @@ export function NavBar() {
         </div>
 
         <nav className="hidden md:flex items-center gap-1 ml-2">
-          {links
-            .filter((l) => l.show)
-            .map((l) => (
-              <Link key={l.href} href={l.href} className={cn("chanv-nav-link", isActive(pathname, l.href) && "active")}>
-                {l.icon}
-                <span className="hidden sm:inline">{l.label}</span>
-              </Link>
-            ))}
+          {visibles.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              aria-current={isActive(pathname, l.href) ? "page" : undefined}
+              className={cn("chanv-nav-link", isActive(pathname, l.href) && "active")}
+            >
+              {l.icon}
+              <span>{l.label}</span>
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-3 md:ml-auto flex-shrink-0 absolute top-0 right-0 md:relative md:top-auto md:right-auto">
@@ -128,6 +140,33 @@ export function NavBar() {
           <Sidebar />
         </div>
       </div>
+
+      {/* REPLI LOCAL DE NAVIGATION MOBILE ------------------------------
+          Sous `md`, le <nav> ci-dessus est masqué et la seule porte de
+          sortie était le burger — qui délègue à `GandalfWidget`, un
+          script chargé depuis le hub (layout.tsx). Sidebar.tsx sonde ce
+          script 60 fois puis abandonne sur un simple console.warn : hub
+          indisponible, CSP, ou PWA hors ligne = plus AUCUNE navigation,
+          l'app devient un cul-de-sac sur téléphone.
+          Cette rangée vit dans le dépôt, ne dépend de rien d'externe, et
+          disparaît dès `md` où la nav du header reprend la main. */}
+      <nav aria-label={t("nav.menu")} className="nav-scroller md:hidden mx-auto max-w-6xl gap-1.5 pt-4">
+        {visibles.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            aria-current={isActive(pathname, l.href) ? "page" : undefined}
+            className={cn(
+              "inline-flex items-center whitespace-nowrap rounded-full border px-3.5 py-2.5 text-[12.5px] font-semibold transition-colors",
+              isActive(pathname, l.href)
+                ? "border-chanv-beige bg-chanv-beige text-chanv-terre"
+                : "border-white/15 bg-white/10 text-white/80",
+            )}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

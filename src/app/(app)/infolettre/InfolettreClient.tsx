@@ -103,7 +103,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
       {/* Onglets */}
       {account?.configured && (
         <>
-          <div className="flex gap-1 border-b border-black/10 mb-6 overflow-x-auto">
+          <div className="nav-scroller gap-1 border-b border-black/10 mb-6">
             {tabs.map((t) => (
               <button
                 key={t.key}
@@ -203,8 +203,8 @@ function FieldsPanel() {
     return <div className="card p-8 text-center text-gray-400">Aucun champ.</div>;
 
   return (
-    <div className="card overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="card table-scroll">
+      <table className="table-wide text-sm">
         <thead>
           <tr className="text-left text-chanv-terre/60 border-b border-black/5">
             <th className="px-4 py-3 font-semibold">Nom</th>
