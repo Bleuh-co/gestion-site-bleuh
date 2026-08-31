@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Product, ProductInput } from "@/lib/types";
+import type { Product, ProductFormInput } from "@/lib/types";
 import { ProductForm } from "../ProductForm";
 
 export function NouveauProduitClient() {
@@ -11,7 +11,7 @@ export function NouveauProduitClient() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(input: ProductInput) {
+  async function handleSubmit(input: ProductFormInput) {
     setSaving(true);
     setError(null);
     try {

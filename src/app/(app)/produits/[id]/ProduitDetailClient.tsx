@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Product, ProductInput, Role } from "@/lib/types";
+import type { Product, ProductFormInput, Role } from "@/lib/types";
 import { ProductForm } from "../ProductForm";
 import { PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS, statusBadgeClass } from "../constants";
 
@@ -57,7 +57,7 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
     };
   }, [id]);
 
-  async function handleSave(input: ProductInput) {
+  async function handleSave(input: ProductFormInput) {
     setSaving(true);
     setSaveError(null);
     try {

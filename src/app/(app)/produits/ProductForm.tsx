@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Product, ProductInput, ProductProvince, ProductStatus, ProductStrain } from "@/lib/types";
+import type { Product, ProductFormInput, ProductProvince, ProductStatus, ProductStrain } from "@/lib/types";
 import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS } from "./constants";
 
 // Formulaire de création/édition produit — champs du vrai schéma
@@ -10,7 +10,15 @@ import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS } from
 //
 // Champs volontairement hors formulaire (édition avancée future, pas dans
 // le brief cœur) : badges, rotationVarieties, relatedProducts,
-// currentRotation, wpPostId, url — l'API les défaut à [] / null si absents.
+// currentRotation, wpPostId, url.
+//
+// ATTENTION — ils doivent rester ABSENTS du payload, pas envoyés à vide.
+// buildInput les émettait avec [] / null : à chaque « Enregistrer », le
+// produit perdait ses variétés en rotation, ses badges, ses produits liés
+// et son wpPostId. La route PATCH fusionne `{ ...doc.data(), ...body }`, donc
+// une clé présente écrase toujours l'existant — même vide. Le type
+// ProductFormInput (lib/types.ts) matérialise cette omission côté
+// compilateur pour que la régression ne puisse pas revenir en silence.
 
 function emptyLocalized() {
   return { fr: "", en: "" };
@@ -60,12 +68,10 @@ function toFormState(p?: Product | null) {
 
 export type ProductFormState = ReturnType<typeof toFormState>;
 
-function buildInput(f: ProductFormState): ProductInput {
+function buildInput(f: ProductFormState): ProductFormInput {
   const collection = f.collection === "__other__" ? f.collectionCustom.trim() : f.collection;
   return {
-    wpPostId: null,
     slug: { fr: f.slug.fr.trim(), en: f.slug.en.trim() },
-    url: null,
     name: { fr: f.name.fr.trim(), en: f.name.en.trim() },
     collection,
     brand: f.brand.trim() || null,
@@ -86,7 +92,6 @@ function buildInput(f: ProductFormState): ProductInput {
     isNew: f.isNew,
     isWebOnly: f.isWebOnly,
     isComingSoon: f.isComingSoon,
-    currentRotation: null,
     description: { fr: f.description.fr, en: f.description.en },
     metaDescription: { fr: f.metaDescription.fr, en: f.metaDescription.en },
     details: f.details,
@@ -97,14 +102,11 @@ function buildInput(f: ProductFormState): ProductInput {
         .map((u) => u.trim())
         .filter(Boolean),
     },
-    badges: [],
     buyLink:
       f.buyLink.fr || f.buyLink.en ? { fr: f.buyLink.fr || null, en: f.buyLink.en || null } : null,
     ocsLink: f.ocsLink.trim() || null,
     gtin: f.gtin.trim() || null,
     sku: f.sku.trim() || null,
-    rotationVarieties: [],
-    relatedProducts: [],
     sourceNotes: f.sourceNotes.trim() || null,
     status: f.status,
   };
@@ -115,7 +117,7 @@ interface ProductFormProps {
   submitLabel: string;
   saving: boolean;
   error?: string | null;
-  onSubmit: (input: ProductInput) => void | Promise<void>;
+  onSubmit: (input: ProductFormInput) => void | Promise<void>;
   onCancel?: () => void;
 }
 

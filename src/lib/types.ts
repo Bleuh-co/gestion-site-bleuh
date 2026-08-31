@@ -161,6 +161,24 @@ export interface ProductInput {
   status: ProductStatus; // défaut "draft"
 }
 
+/**
+ * Sous-ensemble de ProductInput réellement piloté par le formulaire produit.
+ *
+ * Ces six clés n'ont AUCUN champ dans ProductForm. Tant qu'elles étaient
+ * quand même émises (`badges: []`, `rotationVarieties: []`, `wpPostId: null`…),
+ * chaque enregistrement les remettait à zéro : PATCH fusionne
+ * `{ ...doc.data(), ...body }`, et une clé présente dans le body gagne
+ * toujours — même vide. Les omettre est ce qui les préserve.
+ *
+ * Corollaire : toute clé retirée d'ici doit être retirée de buildInput, et
+ * inversement. Si un jour le formulaire édite les badges, on sort "badges"
+ * du Omit et on l'ajoute à buildInput — les deux ensemble, jamais l'un seul.
+ */
+export type ProductFormInput = Omit<
+  ProductInput,
+  "wpPostId" | "url" | "currentRotation" | "badges" | "rotationVarieties" | "relatedProducts"
+>;
+
 // ─────────────────────────────────────────────────────────────
 // Assistant IA
 // ─────────────────────────────────────────────────────────────

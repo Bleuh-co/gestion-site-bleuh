@@ -31,8 +31,16 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 // PATCH /api/produits/[id] — Modifier produit
 // Porté depuis PUT /:id de routes/site-products.js : merge existant+body,
 // REVALIDE TOUT via validateProductInput (pas un update partiel Firestore —
-// c'est ce que fait /archive), unicité SKU (exclut id), préserve createdAt,
-// set() total du document.
+// c'est ce que fait /archive), unicité SKU (exclut id), préserve createdAt.
+//
+// L'écriture est un set({ merge: true }), PAS un set() total. Raison :
+// validateProductInput ne reconstruit que les clés qu'il connaît, alors que
+// le document en porte d'autres, déclarées « lecture seule » dans types.ts et
+// alimentées ailleurs — categories, pills, attributes, studio_links (le
+// rattachement aux visuels Studio Chanv) et images.aromaIcons. Avec un set()
+// total elles n'étaient pas dans le payload, donc Firestore les supprimait à
+// chaque édition. Le merge les laisse intactes tout en réécrivant
+// intégralement les champs validés (un tableau vide vide bien le champ).
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireWrite();
@@ -64,14 +72,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       createdAt: existingData?.createdAt || now,
       updatedAt: now,
     };
-    await ref.set(toStore);
+    await ref.set(toStore, { merge: true });
 
-    const product: Product = {
-      ...toStore,
-      id,
-      rotationVarieties: toStore.rotationVarieties as Product["rotationVarieties"],
-      relatedProducts: toStore.relatedProducts as Product["relatedProducts"],
-    };
+    // Relecture plutôt que reconstruction depuis toStore : après un merge, le
+    // document contient aussi les champs hérités que la validation ignore.
+    // Les renvoyer évite que le client remplace son état par une version
+    // amputée de ce qui est réellement en base.
+    const product = docToProduct(await ref.get());
 
     await recordAudit(session, "product.update", `products/${id}`, {
       name: product.name,
