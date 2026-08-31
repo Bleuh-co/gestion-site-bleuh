@@ -260,3 +260,65 @@ export interface AuditEntry {
   target: string;        // ex. "products/abc123"
   details?: Record<string, unknown>;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Référentiel des variétés (BleuhAPI /admin/varieties)
+//
+// Ce n'est PAS un CRUD : la liste est une vue matérialisée des lots réels
+// de l'ERP, reconstruite par BleuhAPI. On ne crée jamais une variété ici —
+// on ne fait que TRIER celles que l'ERP a produites (fusionner deux
+// orthographes, écarter ce qui n'est pas une variété).
+//
+// Nommage : `Variety` et non `ProductVariety` — à ne pas confondre avec
+// ProductDetails.variety (texte libre de la fiche produit) ni avec
+// ProductRotationVariety (variété en rotation affichée sur le site).
+// ─────────────────────────────────────────────────────────────
+
+/** Motifs d'exclusion — liste FERMÉE, doit rester alignée sur
+ *  VarietyReferential::EXCLUSION_KINDS côté BleuhAPI (qui rejette en 422
+ *  toute valeur hors liste). */
+export type VarietyExclusionKind = "product" | "junk" | "other";
+
+export interface Variety {
+  id: number;
+  /** Clé canonique (minuscules, sans accent ni séparateur) — sert de join. */
+  key: string;
+  name: string;
+  /** Nombre de lots, orthographes absorbées comprises. */
+  lotCount: number;
+  firstWrapDate: string | null;   // "AAAA-MM"
+  lastWrapDate: string | null;    // "AAAA-MM"
+  provinces: ProductProvince[];
+  isActive: boolean;
+  /** Noms des orthographes fusionnées dans celle-ci. */
+  absorbs: string[];
+
+  // Champs présents UNIQUEMENT quand la liste est demandée en mode curation
+  // (?curation=1) — en mode normal, les lignes fusionnées/exclues sont
+  // absentes de la réponse, donc ces champs n'ont pas lieu d'être.
+  mergedIntoId?: number | null;
+  mergedIntoName?: string | null;
+  excludedAs?: VarietyExclusionKind | null;
+  curationNote?: string | null;
+  curatedAt?: string | null;
+  isCurated?: boolean;
+  mergedCount?: number;
+}
+
+export interface VarietySummary {
+  /** Lignes brutes du référentiel (tri compris). */
+  total: number;
+  /** Ce que le sélecteur proposera réellement. */
+  vocabulary: number;
+  merged: number;
+  excluded: number;
+  /** Jamais passées en revue à la main. */
+  uncurated: number;
+}
+
+export interface VarietyListResponse {
+  success: boolean;
+  count: number;
+  data: Variety[];
+  summary?: VarietySummary;
+}
