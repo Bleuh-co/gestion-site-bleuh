@@ -1,5 +1,5 @@
 # Build + déploiement Gestion Site Bleuh — modèle Gandalf (contrat SDK).
-# Build + Artifact Registry en northamerica-northeast1 ; déploiement Cloud Run
+# Build, Artifact Registry et deploiement Cloud Run
 # en us-east1. Install du SDK privé @bleuh-co via secret BuildKit (jamais gravé).
 #
 # Les substitutions par défaut = PROD (antigravity). Le trigger Cloud Build
@@ -8,14 +8,14 @@
 substitutions:
   _SERVICE: gestion-site-bleuh
   _DEPLOY_REGION: us-east1
-  _AR_HOSTNAME: northamerica-northeast1-docker.pkg.dev
+  _AR_HOSTNAME: us-east1-docker.pkg.dev
   _AR_REPOSITORY: cloud-run-source-deploy
   _TAG: latest
   _FB_API_KEY: AIzaSyBj17yDs3xOQq8lFYjOfx3TmKTeIPANNXs
-  _FB_AUTH_DOMAIN: antigravity-20260107.firebaseapp.com
-  _FB_PROJECT_ID: antigravity-20260107
-  _FB_STORAGE_BUCKET: antigravity-20260107.firebasestorage.app
-  _FB_SENDER_ID: "271227085398"
+  _FB_AUTH_DOMAIN: ${PROJECT_ID}.firebaseapp.com
+  _FB_PROJECT_ID: ${PROJECT_ID}
+  _FB_STORAGE_BUCKET: ${PROJECT_ID}.firebasestorage.app
+  _FB_SENDER_ID: "${PROJECT_NUMBER}"
   _FB_APP_ID: 1:271227085398:web:dd67b650261fbb28d551f7
   _ALLOWED_DOMAINS: chanv.com,bleuh.co,lafeuilleverte.ca,maisondherbes.com
   _HUB_URL: https://gandalf.chanv.com
