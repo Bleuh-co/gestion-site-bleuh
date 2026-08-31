@@ -78,7 +78,10 @@ export function VarietyTargetPicker({
         {list.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name} ({o.lotCount} lot{o.lotCount > 1 ? "s" : ""}
-            {o.lastWrapDate ? `, ${o.lastWrapDate}` : ""})
+            {o.lastWrapDate ? `, ${o.lastWrapDate}` : ""}
+            {/* Province dans le libellé : c'est souvent elle qui distingue
+                deux variétés au nom presque identique. */}
+            {(o.provinces || []).length ? `, ${(o.provinces || []).join("+").toUpperCase()}` : ""})
           </option>
         ))}
       </select>

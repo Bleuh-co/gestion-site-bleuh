@@ -20,6 +20,13 @@ const EXCLUSION_LABELS: Record<VarietyExclusionKind, string> = {
   other: "Autre (préciser en note)",
 };
 
+const PROVINCE_LABEL: Record<string, string> = { qc: "Québec", on: "Ontario" };
+
+/** « qc,on » — lisible et comparable d'une ligne à l'autre. */
+function provinceKey(v: Variety): string {
+  return [...(v.provinces || [])].sort().join(",");
+}
+
 function deaccent(s: string): string {
   return s
     .normalize("NFD")
@@ -220,6 +227,19 @@ export function CurationClient() {
                           ? ` · ${v.firstWrapDate} → ${v.lastWrapDate}`
                           : ""}
                       </p>
+                      {/* Les provinces décident : deux écritures d'un même mot
+                          dont l'une est ontarienne et l'autre québécoise, ce
+                          n'est pas la même décision qu'un simple doublon. */}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(v.provinces || []).map((p) => (
+                          <span key={p} className="badge-neutral text-[10px]">
+                            {PROVINCE_LABEL[p] ?? p}
+                          </span>
+                        ))}
+                        {(v.provinces || []).length === 0 && (
+                          <span className="badge-neutral text-[10px]">province inconnue</span>
+                        )}
+                      </div>
                       {v.absorbs && v.absorbs.length > 0 && (
                         <p className="text-xs text-chanv-terre/40 mt-1">
                           Regroupe : {v.absorbs.join(", ")}
@@ -315,6 +335,38 @@ export function CurationClient() {
                         Les lots de « {v.name} » seront comptés avec ceux de la variété choisie, et
                         cette écriture ne sera plus proposée. C&apos;est réversible.
                       </p>
+
+                      {/* Avertissement province — le regroupement fait l'UNION
+                          des provinces. C'est juste quand une même variété est
+                          vendue des deux côtés (le cas d'une faute de frappe
+                          ontarienne), et faux si les deux écritures désignent
+                          en fait deux réalités provinciales différentes. Seul
+                          un humain peut trancher, donc on montre l'écart au
+                          lieu de choisir à sa place. */}
+                      {(() => {
+                        const target = canonicalRows.find((o) => o.id === mergeTarget);
+                        if (!target || provinceKey(target) === provinceKey(v)) return null;
+                        const union = Array.from(
+                          new Set([...(v.provinces || []), ...(target.provinces || [])])
+                        )
+                          .sort()
+                          .map((p) => PROVINCE_LABEL[p] ?? p)
+                          .join(" + ");
+                        return (
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                            Ces deux écritures n&apos;ont pas les mêmes provinces —{" "}
+                            {(v.provinces || []).map((p) => PROVINCE_LABEL[p] ?? p).join(" + ") ||
+                              "aucune"}{" "}
+                            d&apos;un côté,{" "}
+                            {(target.provinces || []).map((p) => PROVINCE_LABEL[p] ?? p).join(" + ") ||
+                              "aucune"}{" "}
+                            de l&apos;autre. Après regroupement, la variété sera marquée{" "}
+                            <strong>{union}</strong>. C&apos;est ce qu&apos;il faut si la même
+                            variété est vendue des deux côtés ; à ne pas faire s&apos;il s&apos;agit
+                            de deux produits distincts.
+                          </p>
+                        );
+                      })()}
                       <button
                         className="btn-primary mt-2"
                         disabled={busy || mergeTarget === ""}

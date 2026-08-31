@@ -36,6 +36,7 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
   const [qDebounced, setQDebounced] = useState("");
   const [since, setSince] = useState("");
   const [activeOnly, setActiveOnly] = useState(false);
+  const [province, setProvince] = useState("");
 
   const [rebuilding, setRebuilding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -98,7 +99,17 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
     }
   }
 
-  const count = varieties.length;
+  // Filtre province appliqué ICI et non côté API : /admin/varieties n'expose
+  // pas de paramètre province, et le vocabulaire tient en ~140 lignes. Le
+  // jour où il faudra filtrer côté serveur (liste beaucoup plus longue, ou
+  // sélecteur contraint par la province d'un produit), c'est BleuhAPI qui
+  // devra apprendre le paramètre — pas cet écran qui devra paginer.
+  const shown = useMemo(
+    () => (province ? varieties.filter((v) => (v.provinces || []).includes(province as "qc" | "on")) : varieties),
+    [varieties, province]
+  );
+
+  const count = shown.length;
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -122,7 +133,7 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
         n&apos;est pas une variété) se fait dans l&apos;écran dédié.
       </p>
 
-      <div className="card p-4 mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="card p-4 mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label">Recherche</label>
           <input
@@ -131,6 +142,14 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+        </div>
+        <div>
+          <label className="label">Province</label>
+          <select className="input" value={province} onChange={(e) => setProvince(e.target.value)}>
+            <option value="">Les deux</option>
+            <option value="qc">Québec</option>
+            <option value="on">Ontario</option>
+          </select>
         </div>
         <div>
           <label className="label">Emballée depuis</label>
@@ -175,7 +194,7 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
             {count} variété{count > 1 ? "s" : ""}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {varieties.map((v) => (
+            {shown.map((v) => (
               <div key={v.id} className="card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="font-semibold text-sm">{v.name}</h2>
