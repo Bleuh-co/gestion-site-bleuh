@@ -675,3 +675,384 @@ html.gandalf-dark .border-black\/10 {
 html.gandalf-dark .hover\:text-\[\#282828\]:hover {
   color: rgba(255, 255, 255, 0.92);
 }
+
+/* ============================================================
+   APERÇU DE FICHE PRODUIT — .pp-* (ProductPreview.tsx)
+   Deux zones, deux palettes, volontairement :
+   - le CHROME de la fenêtre (barre, boutons, notes) suit la console
+     et donc le mode sombre Gandalf ;
+   - la TOILE .pp-canvas reproduit les couleurs du site public
+     (bleu nuit #00264B sur blanc) et NE change PAS en mode sombre :
+     un aperçu qui s'assombrit avec la console mentirait sur le
+     résultat vu par le visiteur.
+   ============================================================ */
+
+.pp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(40, 40, 40, 0.55);
+  backdrop-filter: blur(2px);
+  animation: chanvFadeIn 0.2s ease-out;
+}
+
+.pp-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1060px;
+  max-height: 92vh;
+  overflow: hidden;
+  background: var(--chanv-blanc);
+  border: 1px solid var(--chanv-fibre);
+  border-radius: var(--radius-chanv);
+  box-shadow: var(--shadow-bold);
+}
+
+.pp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--chanv-fibre);
+  background: var(--chanv-fibre);
+}
+
+.pp-bar-title {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  color: var(--chanv-terre);
+}
+
+.pp-bar-title strong {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pp-bar-sub {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.pp-bar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(40, 40, 40, 0.06);
+}
+
+.pp-toggle-btn {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--chanv-terre);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: var(--transition-chanv);
+}
+
+.pp-toggle-btn:hover {
+  opacity: 0.9;
+}
+
+.pp-toggle-active {
+  background: var(--chanv-blanc);
+  opacity: 1;
+  box-shadow: var(--shadow-soft);
+}
+
+.pp-close {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--chanv-terre);
+  background: var(--chanv-beige);
+  cursor: pointer;
+  transition: var(--transition-chanv);
+}
+
+.pp-close:hover {
+  filter: brightness(0.95);
+}
+
+.pp-status {
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+}
+
+.pp-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+/* ---------- Toile : couleurs du site public ---------- */
+.pp-canvas {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px 40px;
+  background: #ffffff;
+  color: #00264b;
+}
+
+.pp-top {
+  display: flex;
+  gap: 36px;
+  align-items: flex-start;
+}
+
+.pp-image-col {
+  flex: 1 1 42%;
+  min-width: 0;
+}
+
+.pp-image {
+  width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+}
+
+.pp-image-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #4a7bb5;
+  border: 1px dashed #d1d9e0;
+  border-radius: 12px;
+}
+
+.pp-info {
+  flex: 1 1 58%;
+  min-width: 0;
+}
+
+.pp-title {
+  font-family: var(--font-outfit), var(--font-inter), serif;
+  font-weight: 800;
+  font-size: 32px;
+  line-height: 1.15;
+  color: #00264b;
+  margin: 0 0 16px;
+}
+
+.pp-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pp-pill {
+  display: inline-block;
+  color: #0033a1;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 3px 15px;
+  border-radius: 25px;
+  text-align: center;
+}
+
+.pp-rotation {
+  color: #4a7bb5;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.pp-desc {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #334e6b;
+  margin-bottom: 24px;
+}
+
+.pp-desc p {
+  margin-bottom: 12px;
+}
+
+.pp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* Boutons non cliquables : ce sont des images du résultat, pas des actions. */
+.pp-btn-avail,
+.pp-btn-buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 11px 24px;
+  border-radius: 25px;
+}
+
+.pp-btn-avail {
+  color: #00264b;
+  background: transparent;
+  border: 2px solid #00264b;
+}
+
+.pp-btn-buy {
+  background: #00264b;
+  color: #ffffff;
+  border: 2px solid #00264b;
+}
+
+.pp-buy-url {
+  margin: 0;
+  font-size: 11px;
+  color: #4a7bb5;
+  overflow-wrap: anywhere;
+}
+
+.pp-missing {
+  font-size: 13px;
+  font-style: italic;
+  color: #b45309;
+}
+
+.pp-details {
+  margin-top: 44px;
+}
+
+.pp-details-title {
+  font-size: 24px;
+  color: #00264b;
+  margin: 0 0 18px;
+  text-align: center;
+}
+
+.pp-details-list {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.pp-detail-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #d1d9e0;
+}
+
+.pp-detail-row dt {
+  flex: 0 0 180px;
+  color: #4a7bb5;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.pp-detail-row dd {
+  margin: 0;
+  font-size: 14px;
+  color: #334e6b;
+}
+
+/* Le fond doit rester OPAQUE : la note surplombe la zone de défilement.
+   Une opacité posée sur l'élément rendrait aussi son fond translucide et
+   laisserait la fiche défiler en transparence dessous — c'est la couleur du
+   texte qui est atténuée, pas l'élément. */
+.pp-note {
+  margin: 0;
+  padding: 12px 20px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(40, 40, 40, 0.65);
+  border-top: 1px solid var(--chanv-fibre);
+  background: var(--chanv-blanc);
+}
+
+@media (max-width: 720px) {
+  .pp-backdrop {
+    padding: 0;
+  }
+  .pp-modal {
+    max-width: none;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+  .pp-top {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .pp-title {
+    font-size: 26px;
+  }
+  .pp-detail-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pp-detail-row dt {
+    flex: none;
+  }
+}
+
+/* --- Mode sombre : seul le chrome suit, la toile reste aux couleurs du site --- */
+html.gandalf-dark .pp-modal {
+  background: #2b2823;
+  border-color: rgba(221, 203, 164, 0.14);
+}
+html.gandalf-dark .pp-bar {
+  background: #201d19;
+  border-bottom-color: rgba(221, 203, 164, 0.14);
+}
+html.gandalf-dark .pp-bar-title {
+  color: rgba(255, 255, 255, 0.92);
+}
+html.gandalf-dark .pp-toggle {
+  background: rgba(255, 255, 255, 0.08);
+}
+html.gandalf-dark .pp-toggle-btn {
+  color: rgba(255, 255, 255, 0.8);
+}
+html.gandalf-dark .pp-toggle-active {
+  background: rgba(221, 203, 164, 0.22);
+  color: #ddcba4;
+}
+html.gandalf-dark .pp-status {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom-color: rgba(245, 158, 11, 0.35);
+}
+html.gandalf-dark .pp-note {
+  color: rgba(255, 255, 255, 0.7);
+  background: #2b2823;
+  border-top-color: rgba(221, 203, 164, 0.14);
+}

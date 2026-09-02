@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Product, ProductFormInput, ProductProvince, ProductStatus, ProductStrain } from "@/lib/types";
 import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS } from "./constants";
+import { ProductPreview } from "./ProductPreview";
 
 // Formulaire de création/édition produit — champs du vrai schéma
 // (validateProductInput), porté depuis le formulaire admin
@@ -136,6 +137,10 @@ interface ProductFormProps {
 
 export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onCancel }: ProductFormProps) {
   const [f, setF] = useState<ProductFormState>(() => toFormState(initial));
+  // Aperçu avant publication : rendu à partir de la saisie EN COURS, sans
+  // enregistrer. On repasse par buildInput pour que l'aperçu montre exactement
+  // ce qui partirait à l'API (valeurs rognées, tags découpés, galerie éclatée).
+  const [previewing, setPreviewing] = useState(false);
 
   // Images : téléversement et reprise depuis la bibliothèque Studio Chanv.
   const [uploading, setUploading] = useState<ImageTarget | null>(null);
@@ -735,12 +740,22 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? "Enregistrement…" : submitLabel}
         </button>
+        {/* type="button" : sans lui, un bouton dans un <form> soumet le
+            formulaire — ici il ouvrirait l'aperçu ET enregistrerait. */}
+        <button type="button" className="btn-secondary" onClick={() => setPreviewing(true)} disabled={saving}>
+          Prévisualiser
+        </button>
         {onCancel && (
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
             Annuler
           </button>
         )}
+        <span className="text-xs text-chanv-terre/60">
+          L&apos;aperçu n&apos;enregistre rien et ne publie rien.
+        </span>
       </div>
+
+      {previewing && <ProductPreview product={buildInput(f)} onClose={() => setPreviewing(false)} />}
     </form>
   );
 }
