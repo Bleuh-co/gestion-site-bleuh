@@ -20,6 +20,19 @@ import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS } from
 // ProductFormInput (lib/types.ts) matérialise cette omission côté
 // compilateur pour que la régression ne puisse pas revenir en silence.
 
+// Emplacement d'une image dans le produit : la vignette principale ou la galerie.
+type ImageTarget = "main" | "gallery";
+
+interface StudioAsset {
+  id: string;
+  displayName: string;
+  thumbUrl: string;
+  format: string;
+}
+
+// Doit rester aligné sur ALLOWED_IMAGE_MIME (lib/product-images.ts).
+const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml";
+
 function emptyLocalized() {
   return { fr: "", en: "" };
 }
@@ -124,6 +137,24 @@ interface ProductFormProps {
 export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onCancel }: ProductFormProps) {
   const [f, setF] = useState<ProductFormState>(() => toFormState(initial));
 
+  // Images : téléversement et reprise depuis la bibliothèque Studio Chanv.
+  const [uploading, setUploading] = useState<ImageTarget | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [studioTarget, setStudioTarget] = useState<ImageTarget | null>(null);
+  const [studioQuery, setStudioQuery] = useState("");
+  const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
+  const [studioLoading, setStudioLoading] = useState(false);
+  const [studioMessage, setStudioMessage] = useState<string | null>(null);
+
+  const galleryUrls = useMemo(
+    () =>
+      f.imagesGallery
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean),
+    [f.imagesGallery]
+  );
+
   const collectionIsKnown = useMemo(
     () => f.collection === "" || KNOWN_COLLECTIONS.includes(f.collection as (typeof KNOWN_COLLECTIONS)[number]),
     [f.collection]
@@ -176,6 +207,125 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit(buildInput(f));
+  }
+
+  // ── Images ───────────────────────────────────────────────────────────
+  // Le téléversement ne fait que RENSEIGNER le champ : c'est « Enregistrer »
+  // qui écrit le produit. Un seul écrivain sur `images`, donc pas de risque
+  // d'écraser une modification faite en parallèle dans le formulaire.
+
+  function applyImageUrl(target: ImageTarget, url: string) {
+    setF((prev) => {
+      if (target === "main") return { ...prev, imagesMain: url };
+      const existing = prev.imagesGallery
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean);
+      if (existing.includes(url)) return prev;
+      return { ...prev, imagesGallery: [...existing, url].join(", ") };
+    });
+  }
+
+  function removeGalleryUrl(url: string) {
+    update("imagesGallery", galleryUrls.filter((u) => u !== url).join(", "));
+  }
+
+  async function uploadImageFile(target: ImageTarget, file: File | null) {
+    if (!file) return;
+    setImageError(null);
+    setUploading(target);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (f.name.fr.trim()) fd.append("productName", f.name.fr.trim());
+      const res = await fetch("/api/produits/image", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Le téléversement a échoué (${res.status}).`);
+      applyImageUrl(target, data.url);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Le téléversement a échoué.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function loadStudioAssets(q: string) {
+    setStudioLoading(true);
+    setStudioMessage(null);
+    try {
+      const res = await fetch(`/api/produits/studio/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Studio Chanv a répondu ${res.status}.`);
+      setStudioAssets(Array.isArray(data.assets) ? data.assets : []);
+      if (data.unavailable && data.message) setStudioMessage(data.message);
+    } catch (err) {
+      setStudioAssets([]);
+      setStudioMessage(err instanceof Error ? err.message : "Chargement impossible.");
+    } finally {
+      setStudioLoading(false);
+    }
+  }
+
+  function openStudioPicker(target: ImageTarget) {
+    setImageError(null);
+    setStudioTarget(target);
+    void loadStudioAssets(studioQuery);
+  }
+
+  async function pickStudioAsset(asset: StudioAsset) {
+    if (!studioTarget) return;
+    const target = studioTarget;
+    setImageError(null);
+    setUploading(target);
+    try {
+      const res = await fetch("/api/produits/image-from-studio", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assetId: asset.id, filename: asset.displayName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Reprise impossible (${res.status}).`);
+      applyImageUrl(target, data.url);
+      setStudioTarget(null);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Reprise impossible.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  function imageActions(target: ImageTarget) {
+    const busy = uploading === target;
+    const disabled = busy || saving || uploading !== null;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={`btn-secondary cursor-pointer ${disabled ? "pointer-events-none opacity-60" : ""}`}
+        >
+          {busy ? "Téléversement…" : "Téléverser une image"}
+          <input
+            type="file"
+            className="sr-only"
+            accept={ACCEPTED_IMAGE_TYPES}
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              // Réinitialise pour que re-choisir le MÊME fichier redéclenche.
+              e.target.value = "";
+              void uploadImageFile(target, file);
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={disabled}
+          onClick={() => openStudioPicker(target)}
+        >
+          Choisir dans Studio Chanv
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -405,14 +555,78 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
 
       <section className="card p-6 space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">Images & liens</h2>
+        {imageError && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {imageError}
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label">Image principale (URL)</label>
-            <input className="input" value={f.imagesMain} onChange={(e) => update("imagesMain", e.target.value)} />
+          <div className="space-y-2">
+            <label className="label">Image principale</label>
+            {f.imagesMain ? (
+              <div className="flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={f.imagesMain}
+                  alt="Aperçu de l'image principale"
+                  className="h-24 w-24 rounded-lg border border-chanv-terre/15 bg-white object-contain"
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={saving || uploading !== null}
+                  onClick={() => update("imagesMain", "")}
+                >
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-chanv-terre/50">Aucune image pour l&apos;instant.</p>
+            )}
+            {imageActions("main")}
+            <input
+              className="input"
+              value={f.imagesMain}
+              placeholder="…ou coller une adresse d'image"
+              onChange={(e) => update("imagesMain", e.target.value)}
+            />
           </div>
-          <div>
-            <label className="label">Galerie (URLs séparées par virgule)</label>
-            <input className="input" value={f.imagesGallery} onChange={(e) => update("imagesGallery", e.target.value)} />
+
+          <div className="space-y-2">
+            <label className="label">Galerie</label>
+            {galleryUrls.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {galleryUrls.map((url) => (
+                  <div key={url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt="Image de la galerie"
+                      className="h-24 w-24 rounded-lg border border-chanv-terre/15 bg-white object-contain"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Retirer cette image de la galerie"
+                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full border border-chanv-terre/20 bg-white text-sm leading-none text-chanv-terre/70 shadow-sm hover:text-red-600"
+                      disabled={saving || uploading !== null}
+                      onClick={() => removeGalleryUrl(url)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-chanv-terre/50">Aucune image dans la galerie.</p>
+            )}
+            {imageActions("gallery")}
+            <input
+              className="input"
+              value={f.imagesGallery}
+              placeholder="…ou coller des adresses séparées par des virgules"
+              onChange={(e) => update("imagesGallery", e.target.value)}
+            />
           </div>
           <div>
             <label className="label">Lien d'achat (FR)</label>
@@ -427,6 +641,76 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
             <input className="input" value={f.ocsLink} onChange={(e) => update("ocsLink", e.target.value)} />
           </div>
         </div>
+
+        {studioTarget && (
+          <div className="space-y-3 rounded-xl border border-chanv-terre/15 bg-white/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">
+                Studio Chanv — images Bleuh
+                {studioTarget === "gallery" ? " (galerie)" : " (image principale)"}
+              </h3>
+              <button type="button" className="btn-secondary" onClick={() => setStudioTarget(null)}>
+                Fermer
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <input
+                className="input flex-1"
+                value={studioQuery}
+                placeholder="Filtrer par nom…"
+                onChange={(e) => setStudioQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Entrée ne doit PAS soumettre le formulaire produit.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void loadStudioAssets(studioQuery);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={studioLoading}
+                onClick={() => void loadStudioAssets(studioQuery)}
+              >
+                Filtrer
+              </button>
+            </div>
+
+            {studioLoading && <p className="text-sm text-chanv-terre/60">Chargement…</p>}
+            {studioMessage && <p className="text-sm text-chanv-terre/70">{studioMessage}</p>}
+            {!studioLoading && !studioMessage && studioAssets.length === 0 && (
+              <p className="text-sm text-chanv-terre/60">Aucune image ne correspond.</p>
+            )}
+
+            {studioAssets.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {studioAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    title={asset.displayName}
+                    className="rounded-lg border border-chanv-terre/15 bg-white p-1 text-left hover:border-chanv-terre/40 disabled:opacity-50"
+                    disabled={uploading !== null}
+                    onClick={() => void pickStudioAsset(asset)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={asset.thumbUrl}
+                      alt={asset.displayName}
+                      loading="lazy"
+                      className="h-20 w-full rounded object-contain"
+                    />
+                    <span className="mt-1 block truncate text-[11px] text-chanv-terre/70">
+                      {asset.displayName}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="card p-6 space-y-4">

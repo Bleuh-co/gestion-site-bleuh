@@ -2,6 +2,7 @@ import "server-only";
 import { cert, getApps, initializeApp, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth, type Auth as AdminAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore as AdminFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -65,6 +66,36 @@ export function adminDb(): AdminFirestore {
 
 export function getServiceAccountForGoogle() {
   return getServiceAccount();
+}
+
+/**
+ * Bucket Cloud Storage du projet.
+ *
+ * Var explicite GCS_BUCKET, sinon dérivé du project_id du service account
+ * (`<project>.firebasestorage.app`). En production ce repli tombe sur
+ * `antigravity-20260107.firebasestorage.app`, qui est bien le bucket où
+ * vivent déjà toutes les images du catalogue (`site-assets/uploads/...`).
+ *
+ * Le bucket n'est PAS en accès uniforme : les ACL par objet sont autorisées,
+ * donc `file.makePublic()` fonctionne — c'est ainsi que les images produits
+ * actuelles sont servies publiquement.
+ */
+export function adminBucket() {
+  let bucketName = process.env.GCS_BUCKET;
+  if (!bucketName) {
+    const sa = getServiceAccount();
+    const projectId =
+      sa?.project_id || process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+    if (projectId) {
+      bucketName = `${projectId}.firebasestorage.app`;
+    }
+  }
+  if (!bucketName) {
+    throw new Error(
+      "Bucket GCS non configuré. Définir GCS_BUCKET ou FIREBASE_SERVICE_ACCOUNT_JSON."
+    );
+  }
+  return getStorage(firebaseAdmin()).bucket(bucketName);
 }
 
 /**

@@ -1,18 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRead } from "@/lib/auth-server";
 import { handleError } from "@/lib/products-service";
+import { isStudioConfigured, listBleuhImages } from "@/lib/studio-chanv";
 
-// GET /api/produits/studio/search — EXTRA (brief §3, #3b).
-// Proxy vers Studio Chanv (relai du header Authorization) — à revalider
-// côté sécurité (CORS, STUDIO_CHANV_URL, STUDIO_CRON_SECRET) avant portage.
-// Équivalent Express : GET /studio/search de routes/site-products.js.
-export async function GET(_req: NextRequest) {
+/**
+ * GET /api/produits/studio/search?q=… — images Bleuh de la bibliothèque
+ * Studio Chanv, pour réutiliser un visuel officiel au lieu d'en re-téléverser
+ * un.
+ *
+ * SÉCURITÉ (le point qui bloquait le portage) : on n'expose pas Studio au
+ * navigateur. L'appel part du serveur, la clé de service reste côté serveur, et
+ * la réponse est réduite aux seules images de la marque Bleuh — jamais la
+ * bibliothèque entière du groupe. `requireRead()` filtre les utilisateurs
+ * non authentifiés en amont.
+ */
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
   try {
     await requireRead();
-    return NextResponse.json(
-      { error: "Non implémenté : proxy Studio Chanv à revalider côté sécurité. À venir.", code: "not_implemented" },
-      { status: 501 }
-    );
+
+    if (!isStudioConfigured()) {
+      // Le module reste utilisable sans Studio : le téléversement de fichier
+      // fonctionne, seule la reprise d'un visuel existant est indisponible.
+      return NextResponse.json(
+        {
+          assets: [],
+          unavailable: true,
+          message:
+            "La bibliothèque Studio Chanv n'est pas branchée sur cet environnement. Le téléversement d'une image depuis l'ordinateur reste disponible.",
+        },
+        { status: 200 }
+      );
+    }
+
+    const q = req.nextUrl.searchParams.get("q") || "";
+    const assets = await listBleuhImages(q);
+    return NextResponse.json({ assets });
   } catch (error) {
     return handleError(error, "GET /api/produits/studio/search");
   }
