@@ -11,14 +11,39 @@ export async function createSessionCookie(idToken: string): Promise<string> {
 }
 
 export function sessionCookieOptions() {
+  // Marketing Bleuh est servi sur son domaine Cloud Run (*.run.app) ET embarqué
+  // dans le hub gandalf.chanv.com → contexte CROSS-SITE (domaines enregistrables
+  // différents, contrairement aux apps *.chanv.com qui sont same-site avec le
+  // hub). Un cookie SameSite=Lax n'est PAS envoyé dans une iframe cross-site :
+  // chaque navigation SSR ne voit aucune session et repart sur /login, pendant
+  // que la page /login voit la session côté client et repart sur /produits →
+  // l'écran de connexion clignote en boucle et l'app ne s'ouvre jamais en
+  // embarqué.
+  //   → SameSite=None (+ Secure obligatoire) : le cookie voyage dans l'iframe.
+  //   → Partitioned (CHIPS) : il survit au blocage des cookies tiers (le jar est
+  //     partitionné par le site de premier niveau — gandalf.chanv.com en embed,
+  //     le domaine Cloud Run en standalone ; chaque contexte s'authentifie seul).
+  // En dev (HTTP), Secure impossible → repli SameSite=Lax.
+  const isProd = process.env.NODE_ENV === "production";
   return {
     name: SESSION_COOKIE,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+    partitioned: isProd,
     path: "/",
     maxAge: SESSION_MAX_AGE_MS / 1000,
   };
+}
+
+/**
+ * Options d'EFFACEMENT du cookie de session. Un cookie Partitioned (CHIPS) vit
+ * dans le jar partitionné du site de premier niveau : un Set-Cookie sans le
+ * même attribut viserait le jar non partitionné et laisserait la session
+ * ouverte en embarqué. On rejoue donc les mêmes attributs avec maxAge 0.
+ */
+export function sessionCookieClearOptions() {
+  return { ...sessionCookieOptions(), value: "", maxAge: 0 };
 }
 
 export interface SessionContext {
