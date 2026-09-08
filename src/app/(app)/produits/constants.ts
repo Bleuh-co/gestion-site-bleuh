@@ -33,6 +33,26 @@ export const PROVINCE_LABELS: Record<ProductProvince, string> = {
   on: "Ontario",
 };
 
+/**
+ * Suggestions pour la catégorie d'une variété en rotation.
+ *
+ * Ce champ est du TEXTE LIBRE affiché tel quel sur la fiche produit publique :
+ * ce n'est pas STRAIN_LABELS (l'enum du produit lui-même). Les cinq premières
+ * valeurs sont celles déjà présentes dans le catalogue importé, les suivantes
+ * les formulations demandées ensuite. Le site ne s'en sert que pour la
+ * couleur du libellé (il cherche « indica » ou « sativa » dans la phrase,
+ * sinon hybride), donc toute autre formulation reste valide.
+ */
+export const ROTATION_CATEGORY_SUGGESTIONS = [
+  "Indica",
+  "Sativa",
+  "Hybride",
+  "Hybride, Indica",
+  "Hybride, Sativa",
+  "Hybride à dominance indica",
+  "Hybride à dominance sativa",
+] as const;
+
 export function statusBadgeClass(status: ProductStatus): string {
   switch (status) {
     case "published":

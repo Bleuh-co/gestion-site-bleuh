@@ -127,10 +127,25 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
         )}
       </div>
 
-      <p className="text-sm text-chanv-terre/60 mb-6 max-w-3xl">
+      <p className="text-sm text-chanv-terre/60 mb-3 max-w-3xl">
         Cette liste est construite à partir des lots réellement emballés. On n&apos;y crée pas de
         variété : elle reflète la production. Le tri (fusionner deux orthographes, écarter ce qui
         n&apos;est pas une variété) se fait dans l&apos;écran dédié.
+      </p>
+
+      {/* Renvoi vers le bon écran : cette liste est le référentiel de l'ERP,
+          pas le contenu du site. Sans ce renvoi, on cherche ici de quoi
+          modifier le texte, la catégorie ou l'image d'une variété visible sur
+          bleuh.co — et on ne trouve rien, faute de savoir que ça se fait sur
+          la fiche du produit. */}
+      <p className="text-sm text-chanv-terre/60 mb-6 max-w-3xl">
+        Pour modifier ce que le visiteur voit d&apos;une variété sur bleuh.co — son texte, sa
+        catégorie (« Hybride à dominance indica »…) ou son image —, ouvrez la fiche du produit
+        concerné dans{" "}
+        <Link href="/produits" className="underline">
+          Produits
+        </Link>{" "}
+        : ces vignettes se règlent dans la section « Variétés en rotation » de la fiche.
       </p>
 
       <div className="card p-4 mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

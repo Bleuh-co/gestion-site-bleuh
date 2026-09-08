@@ -68,6 +68,18 @@ export interface ProductRelated {
   image?: string;
 }
 
+/**
+ * Une carte du bloc « Nos variétés en rotation » d'une fiche produit sur
+ * bleuh.co (site-bleuh ProductDetailPage.tsx) : image, nom, catégorie
+ * affichée en toutes lettres (« Hybride à dominance indica »), pastille THC,
+ * badge « Nouvelle variété ».
+ *
+ * C'est un contenu ÉDITORIAL porté par le produit, distinct du référentiel
+ * `Variety` (vue matérialisée des lots de l'ERP, non éditable) : `category`
+ * est du texte libre, pas l'enum ProductStrain. Le storefront ne s'en sert
+ * que pour choisir une couleur (`categoryColor` cherche « indica » ou
+ * « sativa » dans la chaîne), il l'affiche tel quel.
+ */
 export interface ProductRotationVariety {
   name: string;
   url: string;
@@ -155,7 +167,7 @@ export interface ProductInput {
   ocsLink: string | null;
   gtin: string | null; // /^\d{8,14}$/ si fourni
   sku: string | null; // ≤64 car., unicité vérifiée en base
-  rotationVarieties: unknown[];
+  rotationVarieties: ProductRotationVariety[]; // normalisé, lignes sans nom écartées
   relatedProducts: unknown[];
   sourceNotes: string | null;
   status: ProductStatus; // défaut "draft"
@@ -164,19 +176,24 @@ export interface ProductInput {
 /**
  * Sous-ensemble de ProductInput réellement piloté par le formulaire produit.
  *
- * Ces six clés n'ont AUCUN champ dans ProductForm. Tant qu'elles étaient
- * quand même émises (`badges: []`, `rotationVarieties: []`, `wpPostId: null`…),
- * chaque enregistrement les remettait à zéro : PATCH fusionne
- * `{ ...doc.data(), ...body }`, et une clé présente dans le body gagne
- * toujours — même vide. Les omettre est ce qui les préserve.
+ * Ces cinq clés n'ont AUCUN champ dans ProductForm. Tant qu'elles étaient
+ * quand même émises (`badges: []`, `wpPostId: null`…), chaque enregistrement
+ * les remettait à zéro : PATCH fusionne `{ ...doc.data(), ...body }`, et une
+ * clé présente dans le body gagne toujours — même vide. Les omettre est ce
+ * qui les préserve.
  *
  * Corollaire : toute clé retirée d'ici doit être retirée de buildInput, et
  * inversement. Si un jour le formulaire édite les badges, on sort "badges"
  * du Omit et on l'ajoute à buildInput — les deux ensemble, jamais l'un seul.
+ *
+ * `rotationVarieties` a suivi ce chemin (ticket 3Xk5sjItspoDLkitnGrM) : le
+ * formulaire les édite désormais, donc la clé EST dans le type et EST émise
+ * par buildInput. La protection ci-dessus ne s'applique plus à elle — c'est
+ * la saisie de l'écran qui fait foi, y compris une liste vidée exprès.
  */
 export type ProductFormInput = Omit<
   ProductInput,
-  "wpPostId" | "url" | "currentRotation" | "badges" | "rotationVarieties" | "relatedProducts"
+  "wpPostId" | "url" | "currentRotation" | "badges" | "relatedProducts"
 >;
 
 // ─────────────────────────────────────────────────────────────

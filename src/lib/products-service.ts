@@ -1,7 +1,15 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { adminDb } from "./firebase-admin";
-import type { ApiError, Product, ProductInput, ProductProvince, ProductStatus, ProductStrain } from "./types";
+import type {
+  ApiError,
+  Product,
+  ProductInput,
+  ProductProvince,
+  ProductRotationVariety,
+  ProductStatus,
+  ProductStrain,
+} from "./types";
 
 // Modèle métier porté depuis Formulaire DB-Products-Master
 // routes/site-products.js (validateProductInput, docToProduct, assertSkuUnique).
@@ -62,6 +70,45 @@ function numOrNull(v: unknown): number | null {
 
 function strArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/**
+ * Normalise le bloc « variétés en rotation » d'une fiche produit.
+ *
+ * Une ligne sans nom n'existe pas côté site (le storefront affiche le nom
+ * comme titre de carte et s'en sert de clé de rapprochement avec les
+ * disponibilités vivantes) : elle est écartée plutôt que stockée vide. Le
+ * reste est du contenu éditorial libre — `category` est une phrase
+ * (« Hybride à dominance indica »), PAS l'enum ProductStrain du produit.
+ *
+ * Les champs optionnels absents sont laissés `undefined` et non `null` :
+ * Firestore est initialisé avec `ignoreUndefinedProperties`, la clé n'est
+ * donc simplement pas écrite, ce qui garde les documents identiques à ceux
+ * importés de WordPress.
+ */
+export function normalizeRotationVarieties(v: unknown): ProductRotationVariety[] {
+  if (!Array.isArray(v)) return [];
+  const out: ProductRotationVariety[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object") continue;
+    const o = raw as Record<string, unknown>;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    if (!name) continue;
+    const category = typeof o.category === "string" ? o.category.trim() : "";
+    const image = typeof o.image === "string" ? o.image.trim() : "";
+    const badgeImage = typeof o.badgeImage === "string" ? o.badgeImage.trim() : "";
+    const thc = typeof o.thc === "string" ? o.thc.trim() : "";
+    out.push({
+      name,
+      url: typeof o.url === "string" ? o.url.trim() : "",
+      category: category || undefined,
+      thc: thc || null,
+      image: image || undefined,
+      badgeImage: badgeImage || null,
+      isNewVariety: o.isNewVariety === true,
+    });
+  }
+  return out;
 }
 
 /**
@@ -181,7 +228,7 @@ export function validateProductInput(raw: unknown): ProductInput {
     ocsLink: strOrNull(p.ocsLink),
     gtin: gtinRaw || null,
     sku: skuRaw || null,
-    rotationVarieties: Array.isArray(p.rotationVarieties) ? (p.rotationVarieties as unknown[]) : [],
+    rotationVarieties: normalizeRotationVarieties(p.rotationVarieties),
     relatedProducts: Array.isArray(p.relatedProducts) ? (p.relatedProducts as unknown[]) : [],
     sourceNotes: strOrNull(p.sourceNotes),
     status: status as ProductStatus,

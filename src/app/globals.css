@@ -984,6 +984,92 @@ html.gandalf-dark .hover\:text-\[\#282828\]:hover {
   color: #334e6b;
 }
 
+/* Nos variétés en rotation — cartes reprises du storefront (varietyCard) :
+   pastilles au-dessus, image carrée, nom, puis catégorie colorée selon le mot
+   trouvé dans la phrase (voir categoryColor). */
+.pp-varieties {
+  margin-top: 44px;
+}
+
+.pp-variety-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.pp-variety-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 12px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.pp-variety-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pp-variety-new,
+.pp-variety-thc {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.pp-variety-new {
+  background: #00264b;
+  color: #ffffff;
+}
+
+.pp-variety-thc {
+  background: #e8eef5;
+  color: #00264b;
+}
+
+.pp-variety-image {
+  width: 100%;
+  max-width: 130px;
+  height: auto;
+  object-fit: contain;
+}
+
+.pp-variety-image-empty {
+  width: 100%;
+  max-width: 130px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d1d9e0;
+  border-radius: 8px;
+  font-size: 11px;
+  font-style: italic;
+  color: #b45309;
+}
+
+.pp-variety-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #00264b;
+}
+
+.pp-variety-category {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* Le fond doit rester OPAQUE : la note surplombe la zone de défilement.
    Une opacité posée sur l'élément rendrait aussi son fond translucide et
    laisserait la fiche défiler en transparence dessous — c'est la couleur du

@@ -8,6 +8,7 @@ import type {
   ProductDetails,
   ProductImages,
   ProductProvince,
+  ProductRotationVariety,
   ProductStatus,
   ProductStrain,
 } from "@/lib/types";
@@ -23,9 +24,15 @@ import type {
 // n'a donc aucune URL publique tant qu'il n'est pas publié.
 //
 // Contrepartie assumée : c'est une COPIE de la mise en page publique. Les
-// blocs qui dépendent de données vivantes ou d'autres documents (variétés en
-// rotation, produits suggérés, disponibilités en magasin) ne sont pas
-// reproduits — le pied de l'aperçu le dit au lieu de le laisser croire.
+// blocs qui dépendent de données vivantes ou d'autres documents (produits
+// suggérés, disponibilités en magasin) ne sont pas reproduits — le pied de
+// l'aperçu le dit au lieu de le laisser croire.
+//
+// Les variétés en rotation, elles, SONT reproduites depuis le ticket
+// 3Xk5sjItspoDLkitnGrM : elles sont désormais éditables dans le formulaire,
+// et une saisie qu'on ne peut pas relire avant d'enregistrer n'est qu'à
+// moitié éditable. Le storefront y ajoute des disponibilités vivantes que
+// l'aperçu n'a pas — c'est la seule différence, et le pied de page la dit.
 //
 // Si le storefront change l'ordre des blocs ou ses libellés, ce fichier doit
 // suivre : c'est le prix d'un aperçu qui ne dépend pas du site public.
@@ -52,6 +59,8 @@ export interface PreviewProduct {
   ocsLink: string | null;
   gtin: string | null;
   currentRotation?: LocalizedNullable | null;
+  /** Optionnel : absent des fiches importées qui n'en ont jamais eu. */
+  rotationVarieties?: ProductRotationVariety[];
   status: ProductStatus;
 }
 
@@ -67,6 +76,16 @@ const STRAIN_COLORS: Record<string, string> = {
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Même règle que `categoryColor` du storefront : la couleur vient du mot
+ *  trouvé dans la phrase libre, « Hybride à dominance indica » vire donc au
+ *  rose de l'indica. Toute autre formulation retombe sur l'hybride. */
+function categoryColor(category?: string): string {
+  const c = (category ?? "").toLowerCase();
+  if (c.includes("sativa")) return STRAIN_COLORS.sativa;
+  if (c.includes("indica")) return STRAIN_COLORS.indica;
+  return STRAIN_COLORS.hybrid;
 }
 
 function buildPills(product: PreviewProduct, locale: Locale): string[] {
@@ -157,6 +176,7 @@ export function ProductPreview({ product, onClose }: ProductPreviewProps) {
   const rows = detailRows(product, locale);
   const strainColor = STRAIN_COLORS[product.strain] ?? "#ff8300";
   const rotationNote = (product.currentRotation?.[locale] ?? "").trim();
+  const rotationVarieties = (product.rotationVarieties ?? []).filter((v) => (v.name ?? "").trim());
 
   return createPortal(
     <div
@@ -299,13 +319,59 @@ export function ProductPreview({ product, onClose }: ProductPreviewProps) {
                 </dl>
               </section>
             )}
+
+            {rotationVarieties.length > 0 && (
+              <section className="pp-varieties">
+                <h2 className="pp-details-title">
+                  {isFr ? "Nos variétés en rotation" : "Our Strains On Rotation"}
+                </h2>
+                <div className="pp-variety-grid">
+                  {rotationVarieties.map((v, i) => {
+                    // Même règle que le storefront : le badge hérité de
+                    // WordPress suffit à afficher la pastille.
+                    const isNewVariety = Boolean(v.isNewVariety) || Boolean(v.badgeImage);
+                    const thc = (v.thc ?? "").trim();
+                    const category = (v.category ?? "").trim();
+                    const image = (v.image ?? "").trim();
+                    return (
+                      <div key={`${v.name}-${i}`} className="pp-variety-card">
+                        {(isNewVariety || thc) && (
+                          <div className="pp-variety-badges">
+                            {isNewVariety && (
+                              <span className="pp-variety-new">
+                                {isFr ? "Nouvelle variété" : "New strain"}
+                              </span>
+                            )}
+                            {thc && <span className="pp-variety-thc">{thc}</span>}
+                          </div>
+                        )}
+                        {image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={image} alt={v.name} className="pp-variety-image" />
+                        ) : (
+                          <div className="pp-variety-image-empty">
+                            {isFr ? "Aucune image" : "No image"}
+                          </div>
+                        )}
+                        <span className="pp-variety-name">{v.name}</span>
+                        {category && (
+                          <span className="pp-variety-category" style={{ color: categoryColor(category) }}>
+                            {category}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         </div>
 
         <p className="pp-note">
-          Aperçu indicatif : les variétés en rotation, les produits suggérés et les disponibilités en magasin sont
-          ajoutés par le site au moment de l&apos;affichage et ne sont pas reproduits ici. Rien n&apos;est enregistré
-          tant que vous n&apos;avez pas cliqué sur Enregistrer.
+          Aperçu indicatif : les produits suggérés et les disponibilités en magasin sont ajoutés par le site au moment
+          de l&apos;affichage et ne sont pas reproduits ici — le site ajoute aussi ces disponibilités sous chaque
+          variété en rotation. Rien n&apos;est enregistré tant que vous n&apos;avez pas cliqué sur Enregistrer.
         </p>
       </div>
     </div>,
