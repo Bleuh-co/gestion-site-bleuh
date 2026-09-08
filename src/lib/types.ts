@@ -357,6 +357,14 @@ export interface VarietyListResponse {
 // carte de produit qui porte déjà sa propre valeur la garde. La fiche ne
 // remplit que les cases restées vides. C'est ce qui permet de préparer une
 // variété à l'avance sans réécrire l'historique des produits en ligne.
+//
+// La recopie a lieu DANS LE NAVIGATEUR, au moment où l'on finit de saisir le
+// nom de la variété dans le formulaire produit — jamais à l'écriture côté
+// serveur. Voir l'en-tête de lib/variety-editorials.ts : un héritage rejoué à
+// chaque enregistrement ne saurait pas distinguer une case jamais remplie
+// d'une case vidée exprès, et ferait revenir ce qu'on vient de retirer.
+// Conséquence à connaître : une fiche créée APRÈS la mise en ligne d'un
+// produit ne descend pas toute seule dans ses cartes.
 // ─────────────────────────────────────────────────────────────
 
 /** Champs saisissables d'une fiche éditoriale. */

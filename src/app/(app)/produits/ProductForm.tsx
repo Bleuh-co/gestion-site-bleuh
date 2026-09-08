@@ -1027,6 +1027,21 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                       placeholder="ex. Candy Kush"
                       onChange={(e) => updateVariety(i, "name", e.target.value)}
                       onBlur={() => applyFicheToVariety(i)}
+                      onKeyDown={(e) => {
+                        // Entrée ne doit PAS soumettre le formulaire produit
+                        // (même garde que la recherche Studio plus haut).
+                        //
+                        // Ici elle est indispensable : sans elle, Entrée
+                        // enregistre SANS déclencher `blur`, donc sans jamais
+                        // recopier la fiche — le produit partirait avec une
+                        // catégorie vide, c'est-à-dire l'orange par défaut,
+                        // précisément ce que cet écran sert à éviter. On
+                        // traite donc Entrée comme une fin de saisie du nom.
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyFicheToVariety(i);
+                        }
+                      }}
                     />
                     {!row.name.trim() && (
                       <p className="mt-1 text-xs text-amber-700">

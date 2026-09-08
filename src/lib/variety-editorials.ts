@@ -176,10 +176,28 @@ export async function saveEditorial(
     updatedAt: now,
     updatedBy: actorEmail,
   };
+
+  const batch = adminDb().batch();
   // set() total et non merge : les champs de la fiche sont tous fournis par
   // le formulaire, et vider un champ doit bien l'effacer — un merge laisserait
   // l'ancienne valeur en place et la fiche mentirait sur ce qu'elle impose.
-  await ref.set(payload);
+  batch.set(ref, payload);
+
+  // Une orthographe absorbée ne doit plus avoir de fiche à elle.
+  //
+  // Cas réel : « Pink Kush 2 » a sa propre fiche tant qu'elle est une ligne du
+  // référentiel ; la curation la fusionne ensuite dans « Pink Kush » et elle
+  // disparaît de la liste. Sa fiche, elle, reste en base — plus affichée nulle
+  // part, donc ni modifiable ni supprimable, mais toujours candidate au
+  // rapprochement par nom dans le formulaire produit, où elle entrerait en
+  // concurrence avec la fiche de la ligne canonique. On l'absorbe donc au lieu
+  // de la laisser traîner : c'est la même opération que la fusion côté
+  // référentiel, appliquée au contenu éditorial.
+  for (const alias of aliasKeys) {
+    if (alias !== key) batch.delete(editorialsCol().doc(alias));
+  }
+
+  await batch.commit();
   return payload;
 }
 
