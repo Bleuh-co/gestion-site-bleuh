@@ -284,7 +284,18 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
     }));
   }
 
+  // Le sélecteur Studio et le téléversement en cours désignent une ligne par
+  // son RANG (`variety:3`). Retirer ou déplacer une ligne renumérote les
+  // suivantes : la cible viserait alors une AUTRE variété que celle demandée,
+  // et l'image atterrirait sur la mauvaise carte. D'où les deux gardes :
+  // on ferme le sélecteur dès qu'on restructure la liste, et les boutons
+  // ↑/↓/Retirer sont verrouillés pendant un téléversement — le seul moment où
+  // une cible est en vol sans sélecteur ouvert pour la refermer.
+  // « Ajouter » n'a pas ce problème : l'ajout se fait en fin de liste, les
+  // rangs déjà attribués ne bougent pas.
+
   function removeVariety(index: number) {
+    setStudioTarget(null);
     setF((prev) => ({
       ...prev,
       rotationVarieties: prev.rotationVarieties.filter((_, i) => i !== index),
@@ -292,6 +303,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
   }
 
   function moveVariety(index: number, delta: number) {
+    setStudioTarget(null);
     setF((prev) => {
       const next = [...prev.rotationVarieties];
       const target = index + delta;
@@ -906,7 +918,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                       type="button"
                       className="btn-secondary"
                       aria-label={`Monter la variété n° ${i + 1}`}
-                      disabled={saving || i === 0}
+                      disabled={saving || uploading !== null || i === 0}
                       onClick={() => moveVariety(i, -1)}
                     >
                       ↑
@@ -915,7 +927,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                       type="button"
                       className="btn-secondary"
                       aria-label={`Descendre la variété n° ${i + 1}`}
-                      disabled={saving || i === f.rotationVarieties.length - 1}
+                      disabled={saving || uploading !== null || i === f.rotationVarieties.length - 1}
                       onClick={() => moveVariety(i, 1)}
                     >
                       ↓
@@ -923,7 +935,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                     <button
                       type="button"
                       className="btn-secondary"
-                      disabled={saving}
+                      disabled={saving || uploading !== null}
                       onClick={() => removeVariety(i)}
                     >
                       Retirer
