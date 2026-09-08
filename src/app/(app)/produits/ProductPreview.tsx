@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { STRAIN_COLORS, categoryColor } from "@/lib/variety-colors";
 import type {
   Localized,
   LocalizedNullable,
@@ -67,25 +68,8 @@ export interface PreviewProduct {
 type Locale = "fr" | "en";
 type Region = "qc" | "on";
 
-// Couleur des pastilles, alignée sur STRAIN_COLORS du storefront.
-const STRAIN_COLORS: Record<string, string> = {
-  sativa: "#ffd100",
-  indica: "#f095cd",
-  hybrid: "#ff8300",
-};
-
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** Même règle que `categoryColor` du storefront : la couleur vient du mot
- *  trouvé dans la phrase libre, « Hybride à dominance indica » vire donc au
- *  rose de l'indica. Toute autre formulation retombe sur l'hybride. */
-function categoryColor(category?: string): string {
-  const c = (category ?? "").toLowerCase();
-  if (c.includes("sativa")) return STRAIN_COLORS.sativa;
-  if (c.includes("indica")) return STRAIN_COLORS.indica;
-  return STRAIN_COLORS.hybrid;
 }
 
 function buildPills(product: PreviewProduct, locale: Locale): string[] {

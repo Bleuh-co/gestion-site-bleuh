@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Role, Variety, VarietyListResponse } from "@/lib/types";
+import { VarietyFicheEditor } from "./VarietyFicheEditor";
+import { categoryColor } from "@/lib/variety-colors";
+import { varietyKey } from "@/lib/variety-key";
+import type { Role, Variety, VarietyEditorial, VarietyListResponse } from "@/lib/types";
 
 interface VarietesListClientProps {
   role: Role;
@@ -41,7 +44,28 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
   const [rebuilding, setRebuilding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Fiches éditoriales, indexées par clé canonique. Chargées une fois : le
+  // vocabulaire tient en ~140 lignes et chaque carte doit savoir si elle a
+  // déjà une fiche, donc une requête par carte n'aurait aucun sens.
+  const [fiches, setFiches] = useState<Record<string, VarietyEditorial>>({});
+  const [editing, setEditing] = useState<Variety | null>(null);
+
   const sinces = useMemo(sinceOptions, []);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/varietes/fiches", { cache: "no-store", signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { data?: VarietyEditorial[] }) => {
+        const map: Record<string, VarietyEditorial> = {};
+        for (const f of data.data || []) map[f.key] = f;
+        setFiches(map);
+      })
+      // Silencieux à dessein : sans les fiches la liste reste utilisable, et
+      // un bandeau d'erreur ici masquerait celui du chargement des variétés.
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setQDebounced(q), 300);
@@ -133,19 +157,23 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
         n&apos;est pas une variété) se fait dans l&apos;écran dédié.
       </p>
 
-      {/* Renvoi vers le bon écran : cette liste est le référentiel de l'ERP,
-          pas le contenu du site. Sans ce renvoi, on cherche ici de quoi
-          modifier le texte, la catégorie ou l'image d'une variété visible sur
-          bleuh.co — et on ne trouve rien, faute de savoir que ça se fait sur
-          la fiche du produit. */}
+      {/* Ce que le visiteur voit se règle désormais ICI, par variété.
+          L'ancien renvoi vers Produits était un cul-de-sac dans le seul cas
+          où l'on en avait vraiment besoin : une variété pas encore en
+          rotation n'apparaît sur AUCUN produit, donc sa couleur et son texte
+          n'étaient réglables nulle part tant qu'elle n'était pas déjà en
+          circulation — c'est-à-dire trop tard. */}
       <p className="text-sm text-chanv-terre/60 mb-6 max-w-3xl">
-        Pour modifier ce que le visiteur voit d&apos;une variété sur bleuh.co — son texte, sa
-        catégorie (« Hybride à dominance indica »…) ou son image —, ouvrez la fiche du produit
-        concerné dans{" "}
+        Pour changer ce que le visiteur voit d&apos;une variété sur bleuh.co — sa catégorie
+        (« Hybride à dominance indica »…, qui décide de la couleur), son THC, son image ou son
+        lien —, utilisez le bouton « Créer la fiche » sur sa carte ci-dessous. C&apos;est
+        possible même avant son retour en rotation&nbsp;: quand on l&apos;ajoutera ensuite à un
+        produit, sa vignette reprendra ces valeurs. Une vignette déjà réglée sur un produit
+        garde la sienne et se modifie dans{" "}
         <Link href="/produits" className="underline">
           Produits
-        </Link>{" "}
-        : ces vignettes se règlent dans la section « Variétés en rotation » de la fiche.
+        </Link>
+        .
       </p>
 
       <div className="card p-4 mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -209,32 +237,89 @@ export function VarietesListClient({ role }: VarietesListClientProps) {
             {count} variété{count > 1 ? "s" : ""}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((v) => (
-              <div key={v.id} className="card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="font-semibold text-sm">{v.name}</h2>
-                  {!v.isActive && <span className="badge-neutral text-[10px] whitespace-nowrap">inactive</span>}
-                </div>
-                <p className="text-xs text-chanv-terre/60 mt-1">
-                  {v.lotCount} lot{v.lotCount > 1 ? "s" : ""}
-                  {v.firstWrapDate && v.lastWrapDate ? ` · ${v.firstWrapDate} → ${v.lastWrapDate}` : ""}
-                </p>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {(v.provinces || []).map((p) => (
-                    <span key={p} className="badge-neutral text-[10px]">
-                      {PROVINCE_LABEL[p] ?? p}
-                    </span>
-                  ))}
-                </div>
-                {v.absorbs && v.absorbs.length > 0 && (
-                  <p className="text-xs text-chanv-terre/40 mt-2">
-                    Regroupe aussi : {v.absorbs.join(", ")}
+            {shown.map((v) => {
+              const fiche = fiches[varietyKey(v.name)] ?? null;
+              return (
+                <div key={v.id} className="card p-4 flex flex-col">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="font-semibold text-sm">{v.name}</h2>
+                    {!v.isActive && <span className="badge-neutral text-[10px] whitespace-nowrap">inactive</span>}
+                  </div>
+                  <p className="text-xs text-chanv-terre/60 mt-1">
+                    {v.lotCount} lot{v.lotCount > 1 ? "s" : ""}
+                    {v.firstWrapDate && v.lastWrapDate ? ` · ${v.firstWrapDate} → ${v.lastWrapDate}` : ""}
                   </p>
-                )}
-              </div>
-            ))}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(v.provinces || []).map((p) => (
+                      <span key={p} className="badge-neutral text-[10px]">
+                        {PROVINCE_LABEL[p] ?? p}
+                      </span>
+                    ))}
+                  </div>
+                  {v.absorbs && v.absorbs.length > 0 && (
+                    <p className="text-xs text-chanv-terre/40 mt-2">
+                      Regroupe aussi : {v.absorbs.join(", ")}
+                    </p>
+                  )}
+
+                  {/* La catégorie réglée et sa couleur, en clair sur la carte :
+                      c'est la question qu'on vient se poser ici (« de quelle
+                      couleur sortira-t-elle ? ») et la liste n'y répondait pas. */}
+                  {fiche?.category ? (
+                    <p className="mt-3 flex items-center gap-2 text-xs text-chanv-terre/70">
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                        style={{ backgroundColor: categoryColor(fiche.category) }}
+                      />
+                      <span className="truncate">{fiche.category}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-3 text-xs text-chanv-terre/40">Aucune fiche — couleur par défaut.</p>
+                  )}
+
+                  {canWrite && (
+                    <div className="mt-3 pt-3 border-t border-chanv-terre/10">
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() => setEditing(v)}
+                      >
+                        {fiche ? "Modifier la fiche" : "Créer la fiche"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </>
+      )}
+
+      {editing && (
+        <VarietyFicheEditor
+          name={editing.name}
+          absorbs={editing.absorbs || []}
+          fiche={fiches[varietyKey(editing.name)] ?? null}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            setFiches((prev) => ({ ...prev, [saved.key]: saved }));
+            setEditing(null);
+            setNotice(
+              `Fiche de « ${saved.name} » enregistrée. Les produits qui l'afficheront ` +
+                `reprendront ces valeurs ; ceux déjà réglés gardent les leurs.`
+            );
+          }}
+          onDeleted={(key) => {
+            setFiches((prev) => {
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+            setEditing(null);
+            setNotice("Fiche supprimée. Les produits déjà réglés ne changent pas.");
+          }}
+        />
       )}
     </main>
   );

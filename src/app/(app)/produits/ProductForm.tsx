@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { varietyKey } from "@/lib/variety-key";
 import type {
   Product,
   ProductFormInput,
@@ -8,6 +9,7 @@ import type {
   ProductRotationVariety,
   ProductStatus,
   ProductStrain,
+  VarietyEditorial,
 } from "@/lib/types";
 import {
   KNOWN_COLLECTIONS,
@@ -228,6 +230,36 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
   const [studioLoading, setStudioLoading] = useState(false);
   const [studioMessage, setStudioMessage] = useState<string | null>(null);
 
+  // Fiches éditoriales des variétés — servent à pré-remplir une carte une fois
+  // son nom saisi. C'est le SEUL endroit où une fiche entre dans un produit :
+  // rien ne la réapplique à l'enregistrement, exprès (cf. l'en-tête de
+  // lib/variety-editorials.ts). La couleur préparée à l'avance est donc
+  // visible dans le formulaire et dans l'aperçu avant d'être enregistrée, et
+  // ce qui part à l'API est exactement ce qui est affiché.
+  const [fiches, setFiches] = useState<Map<string, VarietyEditorial>>(new Map());
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/varietes/fiches", { cache: "no-store", signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { data?: VarietyEditorial[] }) => {
+        // Indexé par la clé de la fiche ET par chaque orthographe qu'elle
+        // absorbe : une carte héritée de WordPress porte souvent une graphie
+        // que le référentiel a depuis fusionnée, et elle doit tout de même
+        // retrouver sa fiche.
+        const map = new Map<string, VarietyEditorial>();
+        for (const fi of data.data || []) {
+          map.set(fi.key, fi);
+          for (const alias of fi.aliasKeys || []) if (!map.has(alias)) map.set(alias, fi);
+        }
+        setFiches(map);
+      })
+      // Sans les fiches, la saisie reste entièrement manuelle — le formulaire
+      // fonctionne exactement comme avant, il n'y a rien à signaler ici.
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
   const galleryUrls = useMemo(
     () =>
       f.imagesGallery
@@ -272,6 +304,47 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         i === index ? { ...row, [key]: value } : row
       ),
     }));
+  }
+
+  /**
+   * Recopie la fiche de la variété dans les cases restées vides.
+   *
+   * Déclenché quand le champ « nom » PERD LE FOCUS, jamais à la frappe : en
+   * cours de saisie, « Blue Dream Haze » passe par « Blue Dream », et une
+   * recopie à chaque touche irait chercher la fiche d'une autre variété puis
+   * laisserait ses valeurs en place une fois le nom terminé. Le nom n'est sûr
+   * qu'une fois la saisie finie.
+   *
+   * On ne remplit QUE les cases vides : un réglage propre à ce produit n'est
+   * jamais écrasé. Et comme la recopie a lieu ici, dans le formulaire, ce qui
+   * est enregistré est exactement ce qui est affiché — vider une case ensuite
+   * la laisse vide pour de bon.
+   */
+  function applyFicheToVariety(index: number) {
+    setF((prev) => {
+      const row = prev.rotationVarieties[index];
+      if (!row) return prev;
+      const fiche = fiches.get(varietyKey(row.name));
+      if (!fiche) return prev;
+
+      const next = { ...row };
+      if (!next.category.trim() && fiche.category) next.category = fiche.category;
+      if (!next.thc.trim() && fiche.thc) next.thc = fiche.thc;
+      if (!next.url.trim() && fiche.url) next.url = fiche.url;
+      if (!next.image.trim() && fiche.image) next.image = fiche.image;
+
+      const unchanged =
+        next.category === row.category &&
+        next.thc === row.thc &&
+        next.url === row.url &&
+        next.image === row.image;
+      if (unchanged) return prev;
+
+      return {
+        ...prev,
+        rotationVarieties: prev.rotationVarieties.map((r, i) => (i === index ? next : r)),
+      };
+    });
   }
 
   function addVariety() {
@@ -892,7 +965,9 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
           Ce sont les vignettes du bloc «&nbsp;Nos variétés en rotation&nbsp;» au bas de la fiche
           produit sur bleuh.co. Elles appartiennent à ce produit : les modifier ici ne change ni le
           référentiel des variétés, ni les autres produits. L&apos;ordre des cartes est celui de
-          cette liste.
+          cette liste. En quittant le champ «&nbsp;Nom de la variété&nbsp;», les cases encore
+          vides reprennent les valeurs préparées dans la fiche de cette variété (écran Variétés)
+          ; ce qui est déjà rempli ici n&apos;est jamais écrasé.
         </p>
 
         {imageError && (
@@ -951,6 +1026,7 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                       value={row.name}
                       placeholder="ex. Candy Kush"
                       onChange={(e) => updateVariety(i, "name", e.target.value)}
+                      onBlur={() => applyFicheToVariety(i)}
                     />
                     {!row.name.trim() && (
                       <p className="mt-1 text-xs text-amber-700">
@@ -970,6 +1046,12 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                     <p className="mt-1 text-xs text-chanv-terre/50">
                       Texte libre, affiché tel quel sous le nom de la variété.
                     </p>
+                    {fiches.has(varietyKey(row.name)) && (
+                      <p className="mt-1 text-xs text-chanv-terre/50">
+                        Une fiche existe pour cette variété&nbsp;: ses valeurs remplissent les
+                        cases vides quand on quitte le champ du nom.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label">THC (étiquette)</label>

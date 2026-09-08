@@ -339,3 +339,49 @@ export interface VarietyListResponse {
   data: Variety[];
   summary?: VarietySummary;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Fiche éditoriale d'une variété
+//
+// Troisième objet « variété », et le seul qu'un humain remplit librement :
+//   - `Variety`                (ci-dessus) : ce que l'ERP a réellement
+//     emballé. Non éditable, reconstruit depuis les lots.
+//   - `ProductRotationVariety` (plus haut) : la carte telle qu'elle paraît
+//     SUR UN PRODUIT donné. Éditable, mais elle n'existe qu'à partir du
+//     moment où la variété est dans la rotation de ce produit.
+//   - `VarietyEditorial`       (ici) : ce qu'on veut voir affiché pour cette
+//     variété, indépendamment de tout produit et AVANT qu'elle n'entre en
+//     rotation.
+//
+// La fiche est un jeu de valeurs par défaut, pas une vérité qui écrase : une
+// carte de produit qui porte déjà sa propre valeur la garde. La fiche ne
+// remplit que les cases restées vides. C'est ce qui permet de préparer une
+// variété à l'avance sans réécrire l'historique des produits en ligne.
+// ─────────────────────────────────────────────────────────────
+
+/** Champs saisissables d'une fiche éditoriale. */
+export interface VarietyEditorialInput {
+  /** Nom d'affichage, tel qu'écrit au référentiel. */
+  name: string;
+  /** Texte libre affiché sous le nom — c'est lui qui décide de la couleur. */
+  category: string | null;
+  thc: string | null;
+  image: string | null;
+  url: string | null;
+  /** Mémo interne, jamais affiché au visiteur. */
+  note: string | null;
+}
+
+export interface VarietyEditorial extends VarietyEditorialInput {
+  /** Clé canonique = id du document (cf. lib/variety-key.ts). */
+  key: string;
+  /**
+   * Clés des orthographes que le référentiel a fusionnées dans celle-ci.
+   * Une carte de produit qui porte encore l'ancienne orthographe retrouve
+   * la fiche par ce biais.
+   */
+  aliasKeys: string[];
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string | null;
+}
