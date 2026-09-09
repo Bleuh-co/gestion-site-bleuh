@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useGandalf } from "@bleuh-co/gandalf-sdk-next/client";
 import { useT } from "@/lib/i18n";
@@ -18,6 +19,11 @@ export function Sidebar() {
   const { embedded } = useGandalf();
   const { session, firebaseUser, signOut } = useAuth();
   const t = useT();
+  const [framed, setFramed] = useState(embedded);
+
+  useEffect(() => {
+    setFramed(window.self !== window.top);
+  }, []);
 
   const role = session?.role;
   const isRead = role === "consultant" || role === "gestionnaire" || role === "admin" || role === "superadmin";
@@ -112,7 +118,14 @@ export function Sidebar() {
     firebaseUser.getIdToken().then((t: string) => gw.setToken(t)).catch(() => {});
   }, [firebaseUser]);
 
-  if (!session || embedded) return null; // en mode embarqué, le shell fournit le menu
+  if (!session || framed) return null; // en mode embarqué, le shell fournit le profil
+
+  const initials = (session.displayName || session.email)
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 
   return (
     <button
@@ -120,9 +133,10 @@ export function Sidebar() {
       onClick={() => (window as any).GandalfWidget?.toggle()}
       className="avatar-burger-btn relative"
       title={t("nav.menu")}
+      aria-label={t("nav.accountMenu")}
     >
       <div className="avatar-burger-inner">
-        {session.photoURL && (
+        {session.photoURL ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={session.photoURL}
@@ -130,12 +144,10 @@ export function Sidebar() {
             className="avatar-burger-photo"
             referrerPolicy="no-referrer"
           />
+        ) : (
+          <span className="avatar-burger-fallback" aria-hidden="true">{initials || "BL"}</span>
         )}
-        <span className="avatar-burger-icon">
-          <span />
-          <span />
-          <span />
-        </span>
+        <ChevronDown className="avatar-burger-chevron" size={14} aria-hidden="true" />
       </div>
     </button>
   );
