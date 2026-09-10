@@ -145,6 +145,59 @@ export function toTotals(rows: GscApiRow[] | undefined): GscTotals {
   };
 }
 
+/**
+ * Somme de totaux quotidiens sur une période. Les compteurs s'additionnent ;
+ * `ctr` et `position` sont REPONDÉRÉS par les impressions — les moyenner
+ * naïvement donnerait un poids identique à un jour à 3 impressions et à un
+ * jour à 3 000, donc un chiffre faux.
+ */
+export function sumTotals(list: GscTotals[]): GscTotals {
+  let clicks = 0;
+  let impressions = 0;
+  let posWeighted = 0;
+  for (const t of list) {
+    clicks += t.clicks;
+    impressions += t.impressions;
+    posWeighted += t.position * t.impressions;
+  }
+  return {
+    clicks,
+    impressions,
+    ctr: impressions > 0 ? round4(clicks / impressions) : 0,
+    position: impressions > 0 ? round4(posWeighted / impressions) : 0,
+  };
+}
+
+/**
+ * Fusionne des listes d'entrées quotidiennes (requêtes, pages…) en un top de
+ * période : clics et impressions additionnés par clé, `ctr` recalculé,
+ * `position` repondérée par les impressions. Limite : chaque jour ne stocke
+ * que son top 100, la longue traîne au-delà est donc absente — négligeable
+ * pour un « top » de période, qui vit tout en haut du classement.
+ */
+export function aggregateEntries(lists: GscEntry[][], limit: number): GscEntry[] {
+  const map = new Map<string, { clicks: number; impressions: number; posWeighted: number }>();
+  for (const list of lists) {
+    for (const e of list) {
+      const acc = map.get(e.key) ?? { clicks: 0, impressions: 0, posWeighted: 0 };
+      acc.clicks += e.clicks;
+      acc.impressions += e.impressions;
+      acc.posWeighted += e.position * e.impressions;
+      map.set(e.key, acc);
+    }
+  }
+  return [...map.entries()]
+    .map(([key, a]) => ({
+      key,
+      clicks: a.clicks,
+      impressions: a.impressions,
+      ctr: a.impressions > 0 ? round4(a.clicks / a.impressions) : 0,
+      position: a.impressions > 0 ? round4(a.posWeighted / a.impressions) : 0,
+    }))
+    .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
+    .slice(0, limit);
+}
+
 export interface BuildDayDocInput {
   date: string;
   siteUrl: string;

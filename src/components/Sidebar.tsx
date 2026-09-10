@@ -47,6 +47,7 @@ export function Sidebar() {
       // links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
       links.push({ label: t("nav.acquisition"), icon: "🧭", href: "/acquisition", mobileOnly: true });
       links.push({ label: t("nav.seo"), icon: "🔍", href: "/seo", mobileOnly: true });
+      links.push({ label: t("nav.gsc"), icon: "📈", href: "/gsc", mobileOnly: true });
     }
     if (isAdmin) {
       links.push({ label: t("nav.audit"), icon: "📋", href: "/audit", mobileOnly: true });

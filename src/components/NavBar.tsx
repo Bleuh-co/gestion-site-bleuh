@@ -12,6 +12,7 @@ import {
   Compass,
   ExternalLink,
   Leaf,
+  LineChart,
   Mail,
   Menu,
   Package,
@@ -74,6 +75,7 @@ export function NavBar() {
           { href: "/infolettre", label: t("nav.infolettre"), icon: Mail, show: isRead },
           { href: "/acquisition", label: t("nav.acquisition"), icon: Compass, show: isRead },
           { href: "/seo", label: t("nav.seo"), icon: Search, show: isRead },
+          { href: "/gsc", label: t("nav.gsc"), icon: LineChart, show: isRead },
         ],
       },
       {

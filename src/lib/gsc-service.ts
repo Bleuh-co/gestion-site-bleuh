@@ -2,12 +2,15 @@ import "server-only";
 import { GoogleAuth } from "google-auth-library";
 import { adminDb } from "@/lib/firebase-admin";
 import {
+  aggregateEntries,
   buildDayDoc,
   gscDayDocId,
+  sumTotals,
   GSC_TOP_LIMIT,
   GSC_SMALL_LIMIT,
   type GscApiRow,
   type GscDayDoc,
+  type GscEntry,
   type GscSitemapInfo,
 } from "@/lib/gsc-pure";
 
@@ -187,22 +190,50 @@ export async function syncDates(dates: string[]): Promise<GscSyncSummary> {
 
 export interface GscReport {
   siteUrl: string;
+  /** Série quotidienne de la période demandée, triée en ordre croissant. */
   days: { date: string; totals: GscDayDoc["totals"] }[];
+  /** Totaux de la période (ctr/position repondérés par impressions). */
+  totals: GscDayDoc["totals"];
+  /** Totaux de la période PRÉCÉDENTE de même longueur, ou null si
+      l'historique ne couvre pas une période complète (comparaison honnête
+      ou pas de comparaison du tout). */
+  prevTotals: GscDayDoc["totals"] | null;
+  /** Tops agrégés sur la période demandée. */
+  queries: GscEntry[];
+  pages: GscEntry[];
+  devices: GscEntry[];
+  countries: GscEntry[];
+  /** État des sitemaps au jour le plus récent. */
+  sitemaps: GscDayDoc["sitemaps"];
   latest: GscDayDoc | null;
 }
 
-/** Lit les N derniers jours stockés (série pour graphiques + détail du plus récent). */
+/**
+ * Lit les N derniers jours stockés et agrège la période : série quotidienne
+ * pour les graphiques, totaux + tops de période, et totaux de la période
+ * précédente (même longueur) pour la comparaison. On lit 2×N documents en une
+ * seule requête — moins cher que deux requêtes et le tri est déjà le bon.
+ */
 export async function readReport(days: number): Promise<GscReport> {
   const snap = await adminDb()
     .collection(GSC_DAILY)
     .orderBy("date", "desc")
-    .limit(days)
+    .limit(days * 2)
     .get();
   const docs = snap.docs.map((d) => d.data() as GscDayDoc);
   docs.sort((a, b) => a.date.localeCompare(b.date));
+  const current = docs.slice(-days);
+  const previous = docs.slice(0, Math.max(0, docs.length - days));
   return {
     siteUrl: gscSiteUrl(),
-    days: docs.map((d) => ({ date: d.date, totals: d.totals })),
-    latest: docs.length > 0 ? docs[docs.length - 1] : null,
+    days: current.map((d) => ({ date: d.date, totals: d.totals })),
+    totals: sumTotals(current.map((d) => d.totals)),
+    prevTotals: previous.length === current.length ? sumTotals(previous.map((d) => d.totals)) : null,
+    queries: aggregateEntries(current.map((d) => d.queries), GSC_TOP_LIMIT),
+    pages: aggregateEntries(current.map((d) => d.pages), GSC_TOP_LIMIT),
+    devices: aggregateEntries(current.map((d) => d.devices), GSC_SMALL_LIMIT),
+    countries: aggregateEntries(current.map((d) => d.countries), GSC_SMALL_LIMIT),
+    sitemaps: current.length > 0 ? current[current.length - 1].sitemaps : [],
+    latest: current.length > 0 ? current[current.length - 1] : null,
   };
 }
