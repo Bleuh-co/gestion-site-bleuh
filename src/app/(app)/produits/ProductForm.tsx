@@ -19,6 +19,17 @@ import {
   STRAIN_LABELS,
 } from "./constants";
 import { ProductPreview } from "./ProductPreview";
+import {
+  CharCount,
+  SEO_DESCRIPTION_LIMIT,
+  SEO_TITLE_LIMIT,
+  SeoPreview,
+  ShareCardPreview,
+  defaultSeoTitle,
+  isUsableUrl,
+  publicProductUrl,
+} from "./SeoPreview";
+import { useT } from "@/lib/i18n";
 
 // Formulaire de création/édition produit — champs du vrai schéma
 // (validateProductInput), porté depuis le formulaire admin
@@ -138,6 +149,14 @@ function toFormState(p?: Product | null) {
     isComingSoon: p?.isComingSoon ?? false,
     description: p?.description ?? emptyLocalized(),
     metaDescription: p?.metaDescription ?? emptyLocalized(),
+    // Référencement. Le `??` n'est pas décoratif : les fiches antérieures à
+    // ces champs n'ont pas les clés en base, et `docToProduct` ne fait que
+    // typer le document, il ne le complète pas. Sans repli, les inputs
+    // passeraient de non contrôlés à contrôlés à la première frappe.
+    seoTitle: p?.seoTitle ?? emptyLocalized(),
+    canonical: p?.canonical ?? emptyLocalized(),
+    ogImage: p?.ogImage ?? "",
+    noindex: p?.noindex ?? false,
     details: {
       format: p?.details?.format ?? emptyLocalized(),
       variety: p?.details?.variety ?? emptyLocalized(),
@@ -186,6 +205,10 @@ function buildInput(f: ProductFormState): ProductFormInput {
     isComingSoon: f.isComingSoon,
     description: { fr: f.description.fr, en: f.description.en },
     metaDescription: { fr: f.metaDescription.fr, en: f.metaDescription.en },
+    seoTitle: { fr: f.seoTitle.fr, en: f.seoTitle.en },
+    canonical: { fr: f.canonical.fr.trim(), en: f.canonical.en.trim() },
+    ogImage: f.ogImage.trim(),
+    noindex: f.noindex,
     details: f.details,
     images: {
       main: f.imagesMain.trim(),
@@ -215,6 +238,10 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onCancel }: ProductFormProps) {
+  // Les libellés de la section « Référencement » passent par i18n.ts (FR/EN/ES,
+  // langue pilotée par le hub Gandalf). Le reste du formulaire est encore en
+  // français dans le code — c'est l'existant, pas un choix reconduit ici.
+  const t = useT();
   const [f, setF] = useState<ProductFormState>(() => toFormState(initial));
   // Aperçu avant publication : rendu à partir de la saisie EN COURS, sans
   // enregistrer. On repasse par buildInput pour que l'aperçu montre exactement
@@ -274,11 +301,30 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
     [f.collection]
   );
 
+  // Le slug que le SERVEUR retiendra, pas celui tapé dans la case : un slug
+  // laissé vide est dérivé du nom par validateProductInput (et l'anglais
+  // retombe sur le français). L'aperçu du référencement affiche une adresse —
+  // s'il montrait la case vide, il annoncerait une URL qui n'existera pas.
+  const effectiveSlug = useMemo(
+    () => ({
+      fr: f.slug.fr.trim() || slugifyPreview(f.name.fr),
+      en: f.slug.en.trim() || f.slug.fr.trim() || slugifyPreview(f.name.en),
+    }),
+    [f.slug.fr, f.slug.en, f.name.fr, f.name.en]
+  );
+
   function update<K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) {
     setF((prev) => ({ ...prev, [key]: value }));
   }
 
-  function updateLocalized(key: "name" | "slug" | "description" | "metaDescription", lang: "fr" | "en", value: string) {
+  // L'union est écrite à la main et doit lister TOUS les champs bilingues du
+  // formulaire : un champ oublié ici n'a pas de quoi être modifié, la section
+  // s'afficherait en lecture seule sans que rien ne le signale.
+  function updateLocalized(
+    key: "name" | "slug" | "description" | "metaDescription" | "seoTitle" | "canonical",
+    lang: "fr" | "en",
+    value: string
+  ) {
     setF((prev) => ({ ...prev, [key]: { ...prev[key], [lang]: value } }));
   }
 
@@ -831,14 +877,140 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
             <label className="label">Description (EN)</label>
             <textarea className="input min-h-[6rem]" value={f.description.en} onChange={(e) => updateLocalized("description", "en", e.target.value)} />
           </div>
-          <div>
-            <label className="label">Méta-description (FR)</label>
-            <textarea className="input min-h-[4rem]" value={f.metaDescription.fr} onChange={(e) => updateLocalized("metaDescription", "fr", e.target.value)} />
+        </div>
+      </section>
+
+      {/* ── Référencement ────────────────────────────────────────────────
+          La méta-description vivait dans « Descriptions », au milieu des
+          textes éditoriaux : rien ne disait qu'elle ne s'adressait pas au
+          visiteur mais au moteur de recherche. Elle est ici, avec les trois
+          autres champs qui décident de la même chose — ce qui paraît dans
+          Google et dans les partages. */}
+      <section className="card p-6 space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">
+          {t("produits.seo.section")}
+        </h2>
+        <p className="text-sm text-chanv-terre/60">{t("produits.seo.intro")}</p>
+
+        {/* L'aperçu est au-dessus des champs : c'est le résultat qu'on vient
+            régler, les cases n'en sont que les molettes. */}
+        <SeoPreview
+          name={f.name}
+          slug={effectiveSlug}
+          seoTitle={f.seoTitle}
+          metaDescription={f.metaDescription}
+          canonical={f.canonical}
+          noindex={f.noindex}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["fr", "en"] as const).map((lang) => {
+            const fallback = defaultSeoTitle(f.name[lang]);
+            return (
+              <div key={`seoTitle-${lang}`}>
+                <label className="label">
+                  {t("produits.seo.title.label", { lang: lang.toUpperCase() })}
+                </label>
+                <input
+                  className="input"
+                  value={f.seoTitle[lang]}
+                  placeholder={t("produits.seo.title.placeholder")}
+                  onChange={(e) => updateLocalized("seoTitle", lang, e.target.value)}
+                />
+                <CharCount value={f.seoTitle[lang]} max={SEO_TITLE_LIMIT} />
+                {fallback && (
+                  <p className="mt-1 text-xs text-chanv-terre/50">
+                    {t("produits.seo.title.help", { default: fallback })}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          {(["fr", "en"] as const).map((lang) => (
+            <div key={`metaDescription-${lang}`}>
+              <label className="label">
+                {t("produits.seo.meta.label", { lang: lang.toUpperCase() })}
+              </label>
+              <textarea
+                className="input min-h-[4rem]"
+                value={f.metaDescription[lang]}
+                onChange={(e) => updateLocalized("metaDescription", lang, e.target.value)}
+              />
+              <CharCount value={f.metaDescription[lang]} max={SEO_DESCRIPTION_LIMIT} />
+              <p className="mt-1 text-xs text-chanv-terre/50">{t("produits.seo.meta.help")}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Les deux phrases honnêtes : ce qu'on écrit ici n'a pas le même
+            poids selon le champ, et le taire ferait passer une réécriture de
+            Google pour une panne de l'écran. */}
+        <p className="text-xs text-chanv-terre/50">
+          {t("produits.seo.noteDescription")} {t("produits.seo.noteTitle")}
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["fr", "en"] as const).map((lang) => (
+            <div key={`canonical-${lang}`}>
+              <label className="label">
+                {t("produits.seo.canonical.label", { lang: lang.toUpperCase() })}
+              </label>
+              <input
+                className="input"
+                value={f.canonical[lang]}
+                placeholder={publicProductUrl(lang, effectiveSlug[lang])}
+                onChange={(e) => updateLocalized("canonical", lang, e.target.value)}
+              />
+              {/* Avertissement, pas blocage : on n'empêche jamais d'enregistrer
+                  le reste de la fiche à cause d'une adresse en cours de
+                  frappe. */}
+              {!isUsableUrl(f.canonical[lang]) && (
+                <p className="mt-1 text-xs text-amber-700">{t("produits.seo.canonical.invalid")}</p>
+              )}
+              <p className="mt-1 text-xs text-chanv-terre/50">{t("produits.seo.canonical.help")}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="label">{t("produits.seo.og.label")}</label>
+            <input
+              className="input"
+              value={f.ogImage}
+              placeholder={t("produits.seo.og.placeholder")}
+              onChange={(e) => update("ogImage", e.target.value)}
+            />
+            <p className="text-xs text-chanv-terre/50">{t("produits.seo.og.help")}</p>
+            {!f.ogImage.trim() && (
+              <p className="text-xs text-chanv-terre/50">{t("produits.seo.og.fallback")}</p>
+            )}
           </div>
-          <div>
-            <label className="label">Méta-description (EN)</label>
-            <textarea className="input min-h-[4rem]" value={f.metaDescription.en} onChange={(e) => updateLocalized("metaDescription", "en", e.target.value)} />
-          </div>
+
+          <ShareCardPreview
+            ogImage={f.ogImage}
+            imagesMain={f.imagesMain}
+            title={f.seoTitle.fr.trim() || defaultSeoTitle(f.name.fr) || t("produits.seo.untitled")}
+            url={f.canonical.fr.trim() || publicProductUrl("fr", effectiveSlug.fr)}
+          />
+        </div>
+
+        <div className="rounded-xl border border-chanv-terre/15 bg-white/60 p-4">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={f.noindex}
+              onChange={(e) => update("noindex", e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">{t("produits.seo.noindex.label")}</span>
+              <span className="mt-1 block text-xs text-chanv-terre/60">
+                {t("produits.seo.noindex.help")}
+              </span>
+            </span>
+          </label>
         </div>
       </section>
 

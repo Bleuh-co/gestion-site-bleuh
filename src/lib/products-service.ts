@@ -49,6 +49,20 @@ function localizedOrEmpty(v: unknown): { fr: string; en: string } {
   };
 }
 
+/**
+ * Comme localizedOrEmpty, mais rogne les deux langues.
+ *
+ * Réservé aux champs qui sont des URL (`canonical`) : une espace traînante y
+ * est un bug silencieux — elle part telle quelle dans le `href` du
+ * `<link rel="canonical">`. Les champs de prose (`description`,
+ * `metaDescription`, `seoTitle`) ne sont volontairement PAS rognés : leur
+ * contenu est du texte, et c'est déjà le contrat des deux premiers.
+ */
+function localizedUrlOrEmpty(v: unknown): { fr: string; en: string } {
+  const o = localizedOrEmpty(v);
+  return { fr: o.fr.trim(), en: o.en.trim() };
+}
+
 function asLocalizedNullable(v: unknown): { fr: string | null; en: string | null } | null {
   if (v == null || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
@@ -221,6 +235,19 @@ export function validateProductInput(raw: unknown): ProductInput {
     currentRotation: asLocalizedNullable(p.currentRotation),
     description: localizedOrEmpty(p.description),
     metaDescription: localizedOrEmpty(p.metaDescription),
+    // Référencement. Cette fonction est une LISTE BLANCHE : un champ absent
+    // d'ici est jeté en silence, et l'écran croirait l'avoir enregistré.
+    seoTitle: localizedOrEmpty(p.seoTitle),
+    // Vide reste vide : aucune URL n'est fabriquée à la place d'un champ
+    // laissé blanc (cf. le contrat dans types.ts).
+    canonical: localizedUrlOrEmpty(p.canonical),
+    ogImage: typeof p.ogImage === "string" ? p.ogImage.trim() : "",
+    // `=== true` et non `!!` : le seul appelant envoie un vrai booléen, et
+    // pour ce champ-ci les deux valeurs ne coûtent pas la même chose. Une
+    // valeur douteuse (la chaîne "false" d'un import, par exemple) serait
+    // lue comme « retirer de Google » par `!!` — on déréférencerait une
+    // fiche sans que personne ne l'ait demandé. Le doute profite à l'index.
+    noindex: p.noindex === true,
     details,
     images,
     badges,

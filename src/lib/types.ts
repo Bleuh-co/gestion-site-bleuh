@@ -116,6 +116,10 @@ export interface Product {
   currentRotation: LocalizedNullable | null;
   description: Localized;
   metaDescription: Localized;
+  seoTitle: Localized;
+  canonical: Localized;
+  ogImage: string;
+  noindex: boolean;
   details: ProductDetails;
   images: ProductImages;
   badges: ProductBadge[];
@@ -160,6 +164,36 @@ export interface ProductInput {
   currentRotation: LocalizedNullable | null;
   description: Localized;
   metaDescription: Localized;
+  // ── Référencement ────────────────────────────────────────────────────
+  // Quatre champs, une seule règle : VIDE veut dire « laisse le site
+  // décider », jamais « efface ». Aucun d'eux n'est rempli d'office, et la
+  // validation n'invente aucune valeur de repli — c'est le site public qui
+  // porte les valeurs par défaut, lui seul sait ce qu'il sait afficher.
+  //
+  // Corollaire pour qui lit ces documents : les fiches créées avant ce bloc
+  // n'ont PAS ces clés tant qu'elles n'ont pas été réenregistrées une fois.
+  // Côté consommateur, `undefined` doit donc se traiter exactement comme
+  // vide — `p.seoTitle?.fr || défaut`, jamais `p.seoTitle.fr`.
+
+  /** Titre affiché par Google. Vide → le site compose « <nom> - Bleuh ». */
+  seoTitle: Localized;
+  /**
+   * URL canonique, rognée. Vide dans l'immense majorité des cas : elle ne
+   * sert qu'aux fiches en double ou qui ont changé d'adresse. Vide reste
+   * vide — on n'y recopie SURTOUT pas l'adresse de la fiche, ce qui
+   * transformerait un champ « non renseigné » en décision éditoriale.
+   */
+  canonical: Localized;
+  /**
+   * Image des cartes de partage (Facebook, LinkedIn, Messenger). Unique,
+   * pas bilingue : c'est un visuel, il ne se traduit pas. Vide → le site
+   * retombe sur `images.main`. Ce repli n'est PAS matérialisé ici, exprès :
+   * recopier `images.main` au moment de l'enregistrement figerait une
+   * valeur qui, laissée vide, suit l'image principale du produit.
+   */
+  ogImage: string;
+  /** Demande à Google de retirer la fiche de ses résultats. */
+  noindex: boolean;
   details: ProductDetails;
   images: ProductImages;
   badges: ProductBadge[];
@@ -190,6 +224,13 @@ export interface ProductInput {
  * formulaire les édite désormais, donc la clé EST dans le type et EST émise
  * par buildInput. La protection ci-dessus ne s'applique plus à elle — c'est
  * la saisie de l'écran qui fait foi, y compris une liste vidée exprès.
+ *
+ * Le bloc référencement (`seoTitle`, `canonical`, `ogImage`, `noindex`) est
+ * ABSENT de ce Omit, et c'est voulu : la section « Référencement » édite les
+ * quatre, donc buildInput doit les émettre. Les omettre rendrait la case
+ * « retirer de Google » indécochable — la clé ne repartirait jamais à false.
+ * Le compilateur tient cette promesse : ces champs étant requis dans le type,
+ * un buildInput qui en oublierait un ne compilerait pas.
  */
 export type ProductFormInput = Omit<
   ProductInput,

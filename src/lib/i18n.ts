@@ -196,6 +196,48 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "produits.status.published": "Publié",
     "produits.status.archived": "Archivé",
 
+    // Référencement d'une fiche produit — section « Référencement » du
+    // formulaire produit. Règle commune à ces quatre champs : laissé vide,
+    // c'est le site qui décide. Les libellés doivent donc dire ce qui se
+    // passe quand on n'écrit rien, jamais réclamer un remplissage.
+    "produits.seo.section": "Référencement",
+    "produits.seo.intro":
+      "Ce que Google affiche quand la fiche sort dans ses résultats, et l'image qui accompagne le lien quand on le partage. Chaque champ laissé vide garde la valeur par défaut du site.",
+    "produits.seo.preview": "Aperçu dans Google",
+    "produits.seo.previewHint":
+      "Aperçu indicatif : l'affichage réel varie selon l'appareil et la recherche.",
+    "produits.seo.noteTitle": "Le titre, lui, est repris tel quel la plupart du temps.",
+    "produits.seo.noteDescription":
+      "Google réécrit souvent la description selon la recherche tapée : ce qui est écrit ici est une proposition, pas une garantie.",
+    "produits.seo.default": "valeur par défaut du site",
+    "produits.seo.emptyDescription": "Vide : Google choisira lui-même un extrait de la page.",
+    "produits.seo.untitled": "Nom du produit à venir",
+    "produits.seo.chars": "{n}/{max} caractères",
+    "produits.seo.charsOver": "Au-delà de {max} caractères, Google coupe souvent la fin.",
+    "produits.seo.title.label": "Titre Google ({lang})",
+    "produits.seo.title.help": "Laissé vide, le site affiche « {default} ».",
+    "produits.seo.title.placeholder": "Laisser vide pour garder le titre par défaut",
+    "produits.seo.meta.label": "Méta-description ({lang})",
+    "produits.seo.meta.help": "Le texte gris sous le titre, dans les résultats de recherche.",
+    "produits.seo.canonical.label": "Adresse canonique ({lang})",
+    "produits.seo.canonical.help":
+      "À remplir seulement si cette fiche fait double emploi avec une autre page, ou si elle a changé d'adresse. Dans presque tous les cas, laisser vide.",
+    "produits.seo.canonical.invalid": "Adresse incomplète : elle doit commencer par « https:// ».",
+    "produits.seo.noindex.label": "Retirer cette fiche de Google",
+    "produits.seo.noindex.help":
+      "La fiche reste en ligne et accessible à qui a le lien ; elle demande seulement à ne plus apparaître dans les résultats de recherche. Le retrait prend en général quelques jours.",
+    "produits.seo.noindex.active":
+      "Cette fiche demande à ne plus figurer dans les résultats Google.",
+    "produits.seo.og.label": "Image de partage",
+    "produits.seo.og.help":
+      "L'image affichée quand le lien de la fiche est partagé sur Facebook, LinkedIn ou Messenger.",
+    "produits.seo.og.placeholder": "Coller une adresse d'image",
+    "produits.seo.og.preview": "Aperçu du partage",
+    "produits.seo.og.fallback": "Vide : le site utilisera l'image principale du produit.",
+    "produits.seo.og.none":
+      "Ce produit n'a pas encore d'image principale : le partage affichera l'image générique de Bleuh.",
+    "produits.seo.og.usingMain": "Image principale du produit",
+
     // Outils
     "outils.title": "Outils",
     "outils.manage": "Gestion des outils",
@@ -375,6 +417,43 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "produits.status.published": "Published",
     "produits.status.archived": "Archived",
 
+    "produits.seo.section": "Search engines",
+    "produits.seo.intro":
+      "What Google shows when this product comes up in its results, and the image that goes with the link when it is shared. Every field left empty keeps the site's default.",
+    "produits.seo.preview": "Google preview",
+    "produits.seo.previewHint":
+      "Indicative preview: the real display varies by device and by search.",
+    "produits.seo.noteTitle": "The title, on the other hand, is usually kept as written.",
+    "produits.seo.noteDescription":
+      "Google often rewrites the description to match the search typed: what is written here is a proposal, not a guarantee.",
+    "produits.seo.default": "site default",
+    "produits.seo.emptyDescription": "Empty: Google will pick an excerpt from the page itself.",
+    "produits.seo.untitled": "Product name to come",
+    "produits.seo.chars": "{n}/{max} characters",
+    "produits.seo.charsOver": "Past {max} characters, Google often cuts the end off.",
+    "produits.seo.title.label": "Google title ({lang})",
+    "produits.seo.title.help": "Left empty, the site shows “{default}”.",
+    "produits.seo.title.placeholder": "Leave empty to keep the default title",
+    "produits.seo.meta.label": "Meta description ({lang})",
+    "produits.seo.meta.help": "The grey text under the title, in search results.",
+    "produits.seo.canonical.label": "Canonical address ({lang})",
+    "produits.seo.canonical.help":
+      "Fill this in only if this product duplicates another page, or if it has changed address. In almost every case, leave it empty.",
+    "produits.seo.canonical.invalid": "Incomplete address: it must start with “https://”.",
+    "produits.seo.noindex.label": "Remove this product from Google",
+    "produits.seo.noindex.help":
+      "The page stays online and reachable by anyone with the link; it simply asks not to appear in search results any more. Removal usually takes a few days.",
+    "produits.seo.noindex.active": "This product asks to be left out of Google results.",
+    "produits.seo.og.label": "Sharing image",
+    "produits.seo.og.help":
+      "The image shown when the product link is shared on Facebook, LinkedIn or Messenger.",
+    "produits.seo.og.placeholder": "Paste an image address",
+    "produits.seo.og.preview": "Sharing preview",
+    "produits.seo.og.fallback": "Empty: the site will use the product's main image.",
+    "produits.seo.og.none":
+      "This product has no main image yet: sharing will show the generic Bleuh image.",
+    "produits.seo.og.usingMain": "Product's main image",
+
     "outils.title": "Tools",
     "outils.manage": "Manage tools",
 
@@ -550,6 +629,43 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "produits.status.draft": "Borrador",
     "produits.status.published": "Publicado",
     "produits.status.archived": "Archivado",
+
+    "produits.seo.section": "Posicionamiento",
+    "produits.seo.intro":
+      "Lo que Google muestra cuando la ficha aparece en sus resultados, y la imagen que acompaña al enlace cuando se comparte. Cada campo que se deja vacío conserva el valor por defecto del sitio.",
+    "produits.seo.preview": "Vista previa en Google",
+    "produits.seo.previewHint":
+      "Vista previa orientativa: la presentación real varía según el dispositivo y la búsqueda.",
+    "produits.seo.noteTitle": "El título, en cambio, se respeta tal cual la mayoría de las veces.",
+    "produits.seo.noteDescription":
+      "Google suele reescribir la descripción según la búsqueda escrita: lo que se pone aquí es una propuesta, no una garantía.",
+    "produits.seo.default": "valor por defecto del sitio",
+    "produits.seo.emptyDescription": "Vacío: Google elegirá él mismo un extracto de la página.",
+    "produits.seo.untitled": "Nombre del producto pendiente",
+    "produits.seo.chars": "{n}/{max} caracteres",
+    "produits.seo.charsOver": "Más allá de {max} caracteres, Google suele cortar el final.",
+    "produits.seo.title.label": "Título en Google ({lang})",
+    "produits.seo.title.help": "Si se deja vacío, el sitio muestra «{default}».",
+    "produits.seo.title.placeholder": "Dejar vacío para conservar el título por defecto",
+    "produits.seo.meta.label": "Metadescripción ({lang})",
+    "produits.seo.meta.help": "El texto gris bajo el título, en los resultados de búsqueda.",
+    "produits.seo.canonical.label": "Dirección canónica ({lang})",
+    "produits.seo.canonical.help":
+      "Se rellena solo si esta ficha duplica otra página, o si ha cambiado de dirección. En casi todos los casos, dejar vacío.",
+    "produits.seo.canonical.invalid": "Dirección incompleta: debe empezar por «https://».",
+    "produits.seo.noindex.label": "Retirar esta ficha de Google",
+    "produits.seo.noindex.help":
+      "La ficha sigue en línea y accesible para quien tenga el enlace; solo pide no aparecer más en los resultados de búsqueda. La retirada suele tardar unos días.",
+    "produits.seo.noindex.active": "Esta ficha pide no figurar en los resultados de Google.",
+    "produits.seo.og.label": "Imagen para compartir",
+    "produits.seo.og.help":
+      "La imagen que se muestra cuando el enlace de la ficha se comparte en Facebook, LinkedIn o Messenger.",
+    "produits.seo.og.placeholder": "Pegar una dirección de imagen",
+    "produits.seo.og.preview": "Vista previa al compartir",
+    "produits.seo.og.fallback": "Vacío: el sitio usará la imagen principal del producto.",
+    "produits.seo.og.none":
+      "Este producto aún no tiene imagen principal: al compartirlo se mostrará la imagen genérica de Bleuh.",
+    "produits.seo.og.usingMain": "Imagen principal del producto",
 
     "outils.title": "Herramientas",
     "outils.manage": "Gestión de herramientas",
