@@ -1,24 +1,126 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Product, ProductFormInput, ProductProvince, ProductStatus, ProductStrain } from "@/lib/types";
-import { KNOWN_COLLECTIONS, PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS } from "./constants";
+import { useEffect, useMemo, useState } from "react";
+import { varietyKey } from "@/lib/variety-key";
+import type {
+  Product,
+  ProductFormInput,
+  ProductProvince,
+  ProductRotationVariety,
+  ProductStatus,
+  ProductStrain,
+  VarietyEditorial,
+} from "@/lib/types";
+import {
+  KNOWN_COLLECTIONS,
+  PROVINCE_LABELS,
+  ROTATION_CATEGORY_SUGGESTIONS,
+  STATUS_LABELS,
+  STRAIN_LABELS,
+} from "./constants";
+import { ProductPreview } from "./ProductPreview";
+import {
+  CharCount,
+  SEO_DESCRIPTION_LIMIT,
+  SEO_TITLE_LIMIT,
+  SeoPreview,
+  ShareCardPreview,
+  defaultSeoTitle,
+  isUsableUrl,
+  publicProductUrl,
+} from "./SeoPreview";
+import { useT } from "@/lib/i18n";
 
 // Formulaire de création/édition produit — champs du vrai schéma
 // (validateProductInput), porté depuis le formulaire admin
 // Formulaire DB-Products-Master/public/site-products.js.
 //
 // Champs volontairement hors formulaire (édition avancée future, pas dans
-// le brief cœur) : badges, rotationVarieties, relatedProducts,
-// currentRotation, wpPostId, url.
+// le brief cœur) : badges, relatedProducts, currentRotation, wpPostId, url.
 //
 // ATTENTION — ils doivent rester ABSENTS du payload, pas envoyés à vide.
 // buildInput les émettait avec [] / null : à chaque « Enregistrer », le
-// produit perdait ses variétés en rotation, ses badges, ses produits liés
-// et son wpPostId. La route PATCH fusionne `{ ...doc.data(), ...body }`, donc
-// une clé présente écrase toujours l'existant — même vide. Le type
-// ProductFormInput (lib/types.ts) matérialise cette omission côté
-// compilateur pour que la régression ne puisse pas revenir en silence.
+// produit perdait ses badges, ses produits liés et son wpPostId. La route
+// PATCH fusionne `{ ...doc.data(), ...body }`, donc une clé présente écrase
+// toujours l'existant — même vide. Le type ProductFormInput (lib/types.ts)
+// matérialise cette omission côté compilateur pour que la régression ne
+// puisse pas revenir en silence.
+//
+// `rotationVarieties` était dans cette liste jusqu'au ticket
+// 3Xk5sjItspoDLkitnGrM : le bloc « Nos variétés en rotation » de la fiche
+// publique n'était éditable nulle part dans la console. Il l'est désormais
+// ici, donc la clé EST émise — et une liste vidée exprès doit bien vider le
+// bloc. Les deux vont ensemble : le champ dans le formulaire ET la clé dans
+// buildInput, jamais l'un sans l'autre.
+
+// Emplacement d'une image dans le produit : la vignette principale, la
+// galerie, ou la vignette d'une variété en rotation (`variety:<index>`).
+type ImageTarget = "main" | "gallery" | `variety:${number}`;
+
+function varietyTargetIndex(target: ImageTarget): number | null {
+  if (!target.startsWith("variety:")) return null;
+  const i = Number(target.slice("variety:".length));
+  return Number.isInteger(i) && i >= 0 ? i : null;
+}
+
+/**
+ * Une ligne du bloc « variétés en rotation » telle que le formulaire la
+ * manipule : tout en chaînes, pas d'`undefined`, pour que les champs soient
+ * des inputs contrôlés. `badgeImage` n'a pas de champ — c'est un visuel hérité
+ * de WordPress qu'on transporte tel quel, mais dont la présence suffit au site
+ * à afficher la pastille « Nouvelle variété ». La case à cocher doit donc le
+ * piloter aussi, sinon décocher ne changerait rien à l'écran du visiteur.
+ */
+interface RotationVarietyRow {
+  name: string;
+  category: string;
+  thc: string;
+  url: string;
+  image: string;
+  isNew: boolean;
+  badgeImage: string | null;
+}
+
+function toRotationRows(list?: ProductRotationVariety[] | null): RotationVarietyRow[] {
+  return (list ?? []).map((v) => ({
+    name: v.name ?? "",
+    category: v.category ?? "",
+    thc: v.thc ?? "",
+    url: v.url ?? "",
+    image: v.image ?? "",
+    // Le site fait `isNewVariety || Boolean(badgeImage)` : la case reflète ce
+    // que le visiteur voit réellement, pas seulement le booléen.
+    isNew: Boolean(v.isNewVariety) || Boolean(v.badgeImage),
+    badgeImage: v.badgeImage ?? null,
+  }));
+}
+
+function fromRotationRows(rows: RotationVarietyRow[]): ProductRotationVariety[] {
+  return rows
+    .map((r) => ({ ...r, name: r.name.trim() }))
+    .filter((r) => r.name)
+    .map((r) => ({
+      name: r.name,
+      url: r.url.trim(),
+      category: r.category.trim(),
+      thc: r.thc.trim(),
+      image: r.image.trim(),
+      isNewVariety: r.isNew,
+      // Décocher retire aussi le badge hérité, sinon la pastille resterait
+      // affichée sur le site et la case mentirait.
+      badgeImage: r.isNew ? r.badgeImage : null,
+    }));
+}
+
+interface StudioAsset {
+  id: string;
+  displayName: string;
+  thumbUrl: string;
+  format: string;
+}
+
+// Doit rester aligné sur ALLOWED_IMAGE_MIME (lib/product-images.ts).
+const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml";
 
 function emptyLocalized() {
   return { fr: "", en: "" };
@@ -47,6 +149,14 @@ function toFormState(p?: Product | null) {
     isComingSoon: p?.isComingSoon ?? false,
     description: p?.description ?? emptyLocalized(),
     metaDescription: p?.metaDescription ?? emptyLocalized(),
+    // Référencement. Le `??` n'est pas décoratif : les fiches antérieures à
+    // ces champs n'ont pas les clés en base, et `docToProduct` ne fait que
+    // typer le document, il ne le complète pas. Sans repli, les inputs
+    // passeraient de non contrôlés à contrôlés à la première frappe.
+    seoTitle: p?.seoTitle ?? emptyLocalized(),
+    canonical: p?.canonical ?? emptyLocalized(),
+    ogImage: p?.ogImage ?? "",
+    noindex: p?.noindex ?? false,
     details: {
       format: p?.details?.format ?? emptyLocalized(),
       variety: p?.details?.variety ?? emptyLocalized(),
@@ -57,6 +167,7 @@ function toFormState(p?: Product | null) {
     },
     imagesMain: p?.images?.main ?? "",
     imagesGallery: (p?.images?.gallery ?? []).join(", "),
+    rotationVarieties: toRotationRows(p?.rotationVarieties),
     buyLink: p?.buyLink ?? { fr: null, en: null },
     ocsLink: p?.ocsLink ?? "",
     gtin: p?.gtin ?? "",
@@ -94,6 +205,10 @@ function buildInput(f: ProductFormState): ProductFormInput {
     isComingSoon: f.isComingSoon,
     description: { fr: f.description.fr, en: f.description.en },
     metaDescription: { fr: f.metaDescription.fr, en: f.metaDescription.en },
+    seoTitle: { fr: f.seoTitle.fr, en: f.seoTitle.en },
+    canonical: { fr: f.canonical.fr.trim(), en: f.canonical.en.trim() },
+    ogImage: f.ogImage.trim(),
+    noindex: f.noindex,
     details: f.details,
     images: {
       main: f.imagesMain.trim(),
@@ -102,6 +217,7 @@ function buildInput(f: ProductFormState): ProductFormInput {
         .map((u) => u.trim())
         .filter(Boolean),
     },
+    rotationVarieties: fromRotationRows(f.rotationVarieties),
     buyLink:
       f.buyLink.fr || f.buyLink.en ? { fr: f.buyLink.fr || null, en: f.buyLink.en || null } : null,
     ocsLink: f.ocsLink.trim() || null,
@@ -122,18 +238,93 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onCancel }: ProductFormProps) {
+  // Les libellés de la section « Référencement » passent par i18n.ts (FR/EN/ES,
+  // langue pilotée par le hub Gandalf). Le reste du formulaire est encore en
+  // français dans le code — c'est l'existant, pas un choix reconduit ici.
+  const t = useT();
   const [f, setF] = useState<ProductFormState>(() => toFormState(initial));
+  // Aperçu avant publication : rendu à partir de la saisie EN COURS, sans
+  // enregistrer. On repasse par buildInput pour que l'aperçu montre exactement
+  // ce qui partirait à l'API (valeurs rognées, tags découpés, galerie éclatée).
+  const [previewing, setPreviewing] = useState(false);
+
+  // Images : téléversement et reprise depuis la bibliothèque Studio Chanv.
+  const [uploading, setUploading] = useState<ImageTarget | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [studioTarget, setStudioTarget] = useState<ImageTarget | null>(null);
+  const [studioQuery, setStudioQuery] = useState("");
+  const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
+  const [studioLoading, setStudioLoading] = useState(false);
+  const [studioMessage, setStudioMessage] = useState<string | null>(null);
+
+  // Fiches éditoriales des variétés — servent à pré-remplir une carte une fois
+  // son nom saisi. C'est le SEUL endroit où une fiche entre dans un produit :
+  // rien ne la réapplique à l'enregistrement, exprès (cf. l'en-tête de
+  // lib/variety-editorials.ts). La couleur préparée à l'avance est donc
+  // visible dans le formulaire et dans l'aperçu avant d'être enregistrée, et
+  // ce qui part à l'API est exactement ce qui est affiché.
+  const [fiches, setFiches] = useState<Map<string, VarietyEditorial>>(new Map());
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/varietes/fiches", { cache: "no-store", signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { data?: VarietyEditorial[] }) => {
+        // Indexé par la clé de la fiche ET par chaque orthographe qu'elle
+        // absorbe : une carte héritée de WordPress porte souvent une graphie
+        // que le référentiel a depuis fusionnée, et elle doit tout de même
+        // retrouver sa fiche.
+        const map = new Map<string, VarietyEditorial>();
+        for (const fi of data.data || []) {
+          map.set(fi.key, fi);
+          for (const alias of fi.aliasKeys || []) if (!map.has(alias)) map.set(alias, fi);
+        }
+        setFiches(map);
+      })
+      // Sans les fiches, la saisie reste entièrement manuelle — le formulaire
+      // fonctionne exactement comme avant, il n'y a rien à signaler ici.
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
+  const galleryUrls = useMemo(
+    () =>
+      f.imagesGallery
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean),
+    [f.imagesGallery]
+  );
 
   const collectionIsKnown = useMemo(
     () => f.collection === "" || KNOWN_COLLECTIONS.includes(f.collection as (typeof KNOWN_COLLECTIONS)[number]),
     [f.collection]
   );
 
+  // Le slug que le SERVEUR retiendra, pas celui tapé dans la case : un slug
+  // laissé vide est dérivé du nom par validateProductInput (et l'anglais
+  // retombe sur le français). L'aperçu du référencement affiche une adresse —
+  // s'il montrait la case vide, il annoncerait une URL qui n'existera pas.
+  const effectiveSlug = useMemo(
+    () => ({
+      fr: f.slug.fr.trim() || slugifyPreview(f.name.fr),
+      en: f.slug.en.trim() || f.slug.fr.trim() || slugifyPreview(f.name.en),
+    }),
+    [f.slug.fr, f.slug.en, f.name.fr, f.name.en]
+  );
+
   function update<K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) {
     setF((prev) => ({ ...prev, [key]: value }));
   }
 
-  function updateLocalized(key: "name" | "slug" | "description" | "metaDescription", lang: "fr" | "en", value: string) {
+  // L'union est écrite à la main et doit lister TOUS les champs bilingues du
+  // formulaire : un champ oublié ici n'a pas de quoi être modifié, la section
+  // s'afficherait en lecture seule sans que rien ne le signale.
+  function updateLocalized(
+    key: "name" | "slug" | "description" | "metaDescription" | "seoTitle" | "canonical",
+    lang: "fr" | "en",
+    value: string
+  ) {
     setF((prev) => ({ ...prev, [key]: { ...prev[key], [lang]: value } }));
   }
 
@@ -142,6 +333,103 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
       ...prev,
       details: { ...prev.details, [field]: { ...prev.details[field], [lang]: value } },
     }));
+  }
+
+  // ── Variétés en rotation ─────────────────────────────────────────────
+  // Liste ORDONNÉE : le site affiche les cartes dans cet ordre, d'où les
+  // boutons monter/descendre plutôt qu'un tri automatique.
+
+  function updateVariety<K extends keyof RotationVarietyRow>(
+    index: number,
+    key: K,
+    value: RotationVarietyRow[K]
+  ) {
+    setF((prev) => ({
+      ...prev,
+      rotationVarieties: prev.rotationVarieties.map((row, i) =>
+        i === index ? { ...row, [key]: value } : row
+      ),
+    }));
+  }
+
+  /**
+   * Recopie la fiche de la variété dans les cases restées vides.
+   *
+   * Déclenché quand le champ « nom » PERD LE FOCUS, jamais à la frappe : en
+   * cours de saisie, « Blue Dream Haze » passe par « Blue Dream », et une
+   * recopie à chaque touche irait chercher la fiche d'une autre variété puis
+   * laisserait ses valeurs en place une fois le nom terminé. Le nom n'est sûr
+   * qu'une fois la saisie finie.
+   *
+   * On ne remplit QUE les cases vides : un réglage propre à ce produit n'est
+   * jamais écrasé. Et comme la recopie a lieu ici, dans le formulaire, ce qui
+   * est enregistré est exactement ce qui est affiché — vider une case ensuite
+   * la laisse vide pour de bon.
+   */
+  function applyFicheToVariety(index: number) {
+    setF((prev) => {
+      const row = prev.rotationVarieties[index];
+      if (!row) return prev;
+      const fiche = fiches.get(varietyKey(row.name));
+      if (!fiche) return prev;
+
+      const next = { ...row };
+      if (!next.category.trim() && fiche.category) next.category = fiche.category;
+      if (!next.thc.trim() && fiche.thc) next.thc = fiche.thc;
+      if (!next.url.trim() && fiche.url) next.url = fiche.url;
+      if (!next.image.trim() && fiche.image) next.image = fiche.image;
+
+      const unchanged =
+        next.category === row.category &&
+        next.thc === row.thc &&
+        next.url === row.url &&
+        next.image === row.image;
+      if (unchanged) return prev;
+
+      return {
+        ...prev,
+        rotationVarieties: prev.rotationVarieties.map((r, i) => (i === index ? next : r)),
+      };
+    });
+  }
+
+  function addVariety() {
+    setF((prev) => ({
+      ...prev,
+      rotationVarieties: [
+        ...prev.rotationVarieties,
+        { name: "", category: "", thc: "", url: "", image: "", isNew: false, badgeImage: null },
+      ],
+    }));
+  }
+
+  // Le sélecteur Studio et le téléversement en cours désignent une ligne par
+  // son RANG (`variety:3`). Retirer ou déplacer une ligne renumérote les
+  // suivantes : la cible viserait alors une AUTRE variété que celle demandée,
+  // et l'image atterrirait sur la mauvaise carte. D'où les deux gardes :
+  // on ferme le sélecteur dès qu'on restructure la liste, et les boutons
+  // ↑/↓/Retirer sont verrouillés pendant un téléversement — le seul moment où
+  // une cible est en vol sans sélecteur ouvert pour la refermer.
+  // « Ajouter » n'a pas ce problème : l'ajout se fait en fin de liste, les
+  // rangs déjà attribués ne bougent pas.
+
+  function removeVariety(index: number) {
+    setStudioTarget(null);
+    setF((prev) => ({
+      ...prev,
+      rotationVarieties: prev.rotationVarieties.filter((_, i) => i !== index),
+    }));
+  }
+
+  function moveVariety(index: number, delta: number) {
+    setStudioTarget(null);
+    setF((prev) => {
+      const next = [...prev.rotationVarieties];
+      const target = index + delta;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...prev, rotationVarieties: next };
+    });
   }
 
   function toggleProvince(p: ProductProvince) {
@@ -176,6 +464,221 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit(buildInput(f));
+  }
+
+  // ── Images ───────────────────────────────────────────────────────────
+  // Le téléversement ne fait que RENSEIGNER le champ : c'est « Enregistrer »
+  // qui écrit le produit. Un seul écrivain sur `images`, donc pas de risque
+  // d'écraser une modification faite en parallèle dans le formulaire.
+
+  function applyImageUrl(target: ImageTarget, url: string) {
+    setF((prev) => {
+      if (target === "main") return { ...prev, imagesMain: url };
+      const varietyIndex = varietyTargetIndex(target);
+      if (varietyIndex !== null) {
+        if (varietyIndex >= prev.rotationVarieties.length) return prev;
+        return {
+          ...prev,
+          rotationVarieties: prev.rotationVarieties.map((row, i) =>
+            i === varietyIndex ? { ...row, image: url } : row
+          ),
+        };
+      }
+      const existing = prev.imagesGallery
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean);
+      if (existing.includes(url)) return prev;
+      return { ...prev, imagesGallery: [...existing, url].join(", ") };
+    });
+  }
+
+  function removeGalleryUrl(url: string) {
+    update("imagesGallery", galleryUrls.filter((u) => u !== url).join(", "));
+  }
+
+  async function uploadImageFile(target: ImageTarget, file: File | null) {
+    if (!file) return;
+    setImageError(null);
+    setUploading(target);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // L'image d'une variété est classée dans Studio Chanv sous le nom de la
+      // variété (« Candy Kush »), pas sous celui du produit : c'est ce nom-là
+      // qu'on cherchera pour la retrouver.
+      const varietyIndex = varietyTargetIndex(target);
+      const assetName =
+        varietyIndex !== null
+          ? f.rotationVarieties[varietyIndex]?.name.trim() || f.name.fr.trim()
+          : f.name.fr.trim();
+      if (assetName) fd.append("productName", assetName);
+      const res = await fetch("/api/produits/image", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Le téléversement a échoué (${res.status}).`);
+      applyImageUrl(target, data.url);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Le téléversement a échoué.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function loadStudioAssets(q: string) {
+    setStudioLoading(true);
+    setStudioMessage(null);
+    try {
+      const res = await fetch(`/api/produits/studio/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Studio Chanv a répondu ${res.status}.`);
+      setStudioAssets(Array.isArray(data.assets) ? data.assets : []);
+      if (data.unavailable && data.message) setStudioMessage(data.message);
+    } catch (err) {
+      setStudioAssets([]);
+      setStudioMessage(err instanceof Error ? err.message : "Chargement impossible.");
+    } finally {
+      setStudioLoading(false);
+    }
+  }
+
+  function openStudioPicker(target: ImageTarget) {
+    setImageError(null);
+    setStudioTarget(target);
+    void loadStudioAssets(studioQuery);
+  }
+
+  async function pickStudioAsset(asset: StudioAsset) {
+    if (!studioTarget) return;
+    const target = studioTarget;
+    setImageError(null);
+    setUploading(target);
+    try {
+      const res = await fetch("/api/produits/image-from-studio", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assetId: asset.id, filename: asset.displayName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Reprise impossible (${res.status}).`);
+      applyImageUrl(target, data.url);
+      setStudioTarget(null);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Reprise impossible.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  function imageActions(target: ImageTarget) {
+    const busy = uploading === target;
+    const disabled = busy || saving || uploading !== null;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={`btn-secondary cursor-pointer ${disabled ? "pointer-events-none opacity-60" : ""}`}
+        >
+          {busy ? "Téléversement…" : "Téléverser une image"}
+          <input
+            type="file"
+            className="sr-only"
+            accept={ACCEPTED_IMAGE_TYPES}
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              // Réinitialise pour que re-choisir le MÊME fichier redéclenche.
+              e.target.value = "";
+              void uploadImageFile(target, file);
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={disabled}
+          onClick={() => openStudioPicker(target)}
+        >
+          Choisir dans Studio Chanv
+        </button>
+      </div>
+    );
+  }
+
+  // Le sélecteur Studio Chanv est partagé par les images du produit et
+  // celles des variétés en rotation. Il est rendu DANS la section qui a
+  // demandé l'image (`studioTarget`), pas à un endroit fixe : sinon,
+  // cliquer « Choisir dans Studio Chanv » sur la 4e variété ferait
+  // apparaître la grille dans une autre carte, plus haut dans la page.
+  function studioPicker() {
+    if (!studioTarget) return null;
+    return (
+          <div className="space-y-3 rounded-xl border border-chanv-terre/15 bg-white/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">
+                Studio Chanv — images Bleuh
+                {studioTargetLabel(studioTarget)}
+              </h3>
+              <button type="button" className="btn-secondary" onClick={() => setStudioTarget(null)}>
+                Fermer
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <input
+                className="input flex-1"
+                value={studioQuery}
+                placeholder="Filtrer par nom…"
+                onChange={(e) => setStudioQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Entrée ne doit PAS soumettre le formulaire produit.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void loadStudioAssets(studioQuery);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={studioLoading}
+                onClick={() => void loadStudioAssets(studioQuery)}
+              >
+                Filtrer
+              </button>
+            </div>
+
+            {studioLoading && <p className="text-sm text-chanv-terre/60">Chargement…</p>}
+            {studioMessage && <p className="text-sm text-chanv-terre/70">{studioMessage}</p>}
+            {!studioLoading && !studioMessage && studioAssets.length === 0 && (
+              <p className="text-sm text-chanv-terre/60">Aucune image ne correspond.</p>
+            )}
+
+            {studioAssets.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {studioAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    title={asset.displayName}
+                    className="rounded-lg border border-chanv-terre/15 bg-white p-1 text-left hover:border-chanv-terre/40 disabled:opacity-50"
+                    disabled={uploading !== null}
+                    onClick={() => void pickStudioAsset(asset)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={asset.thumbUrl}
+                      alt={asset.displayName}
+                      loading="lazy"
+                      className="h-20 w-full rounded object-contain"
+                    />
+                    <span className="mt-1 block truncate text-[11px] text-chanv-terre/70">
+                      {asset.displayName}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+    );
   }
 
   return (
@@ -374,14 +877,140 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
             <label className="label">Description (EN)</label>
             <textarea className="input min-h-[6rem]" value={f.description.en} onChange={(e) => updateLocalized("description", "en", e.target.value)} />
           </div>
-          <div>
-            <label className="label">Méta-description (FR)</label>
-            <textarea className="input min-h-[4rem]" value={f.metaDescription.fr} onChange={(e) => updateLocalized("metaDescription", "fr", e.target.value)} />
+        </div>
+      </section>
+
+      {/* ── Référencement ────────────────────────────────────────────────
+          La méta-description vivait dans « Descriptions », au milieu des
+          textes éditoriaux : rien ne disait qu'elle ne s'adressait pas au
+          visiteur mais au moteur de recherche. Elle est ici, avec les trois
+          autres champs qui décident de la même chose — ce qui paraît dans
+          Google et dans les partages. */}
+      <section className="card p-6 space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">
+          {t("produits.seo.section")}
+        </h2>
+        <p className="text-sm text-chanv-terre/60">{t("produits.seo.intro")}</p>
+
+        {/* L'aperçu est au-dessus des champs : c'est le résultat qu'on vient
+            régler, les cases n'en sont que les molettes. */}
+        <SeoPreview
+          name={f.name}
+          slug={effectiveSlug}
+          seoTitle={f.seoTitle}
+          metaDescription={f.metaDescription}
+          canonical={f.canonical}
+          noindex={f.noindex}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["fr", "en"] as const).map((lang) => {
+            const fallback = defaultSeoTitle(f.name[lang]);
+            return (
+              <div key={`seoTitle-${lang}`}>
+                <label className="label">
+                  {t("produits.seo.title.label", { lang: lang.toUpperCase() })}
+                </label>
+                <input
+                  className="input"
+                  value={f.seoTitle[lang]}
+                  placeholder={t("produits.seo.title.placeholder")}
+                  onChange={(e) => updateLocalized("seoTitle", lang, e.target.value)}
+                />
+                <CharCount value={f.seoTitle[lang]} max={SEO_TITLE_LIMIT} />
+                {fallback && (
+                  <p className="mt-1 text-xs text-chanv-terre/50">
+                    {t("produits.seo.title.help", { default: fallback })}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          {(["fr", "en"] as const).map((lang) => (
+            <div key={`metaDescription-${lang}`}>
+              <label className="label">
+                {t("produits.seo.meta.label", { lang: lang.toUpperCase() })}
+              </label>
+              <textarea
+                className="input min-h-[4rem]"
+                value={f.metaDescription[lang]}
+                onChange={(e) => updateLocalized("metaDescription", lang, e.target.value)}
+              />
+              <CharCount value={f.metaDescription[lang]} max={SEO_DESCRIPTION_LIMIT} />
+              <p className="mt-1 text-xs text-chanv-terre/50">{t("produits.seo.meta.help")}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Les deux phrases honnêtes : ce qu'on écrit ici n'a pas le même
+            poids selon le champ, et le taire ferait passer une réécriture de
+            Google pour une panne de l'écran. */}
+        <p className="text-xs text-chanv-terre/50">
+          {t("produits.seo.noteDescription")} {t("produits.seo.noteTitle")}
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["fr", "en"] as const).map((lang) => (
+            <div key={`canonical-${lang}`}>
+              <label className="label">
+                {t("produits.seo.canonical.label", { lang: lang.toUpperCase() })}
+              </label>
+              <input
+                className="input"
+                value={f.canonical[lang]}
+                placeholder={publicProductUrl(lang, effectiveSlug[lang])}
+                onChange={(e) => updateLocalized("canonical", lang, e.target.value)}
+              />
+              {/* Avertissement, pas blocage : on n'empêche jamais d'enregistrer
+                  le reste de la fiche à cause d'une adresse en cours de
+                  frappe. */}
+              {!isUsableUrl(f.canonical[lang]) && (
+                <p className="mt-1 text-xs text-amber-700">{t("produits.seo.canonical.invalid")}</p>
+              )}
+              <p className="mt-1 text-xs text-chanv-terre/50">{t("produits.seo.canonical.help")}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="label">{t("produits.seo.og.label")}</label>
+            <input
+              className="input"
+              value={f.ogImage}
+              placeholder={t("produits.seo.og.placeholder")}
+              onChange={(e) => update("ogImage", e.target.value)}
+            />
+            <p className="text-xs text-chanv-terre/50">{t("produits.seo.og.help")}</p>
+            {!f.ogImage.trim() && (
+              <p className="text-xs text-chanv-terre/50">{t("produits.seo.og.fallback")}</p>
+            )}
           </div>
-          <div>
-            <label className="label">Méta-description (EN)</label>
-            <textarea className="input min-h-[4rem]" value={f.metaDescription.en} onChange={(e) => updateLocalized("metaDescription", "en", e.target.value)} />
-          </div>
+
+          <ShareCardPreview
+            ogImage={f.ogImage}
+            imagesMain={f.imagesMain}
+            title={f.seoTitle.fr.trim() || defaultSeoTitle(f.name.fr) || t("produits.seo.untitled")}
+            url={f.canonical.fr.trim() || publicProductUrl("fr", effectiveSlug.fr)}
+          />
+        </div>
+
+        <div className="rounded-xl border border-chanv-terre/15 bg-white/60 p-4">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={f.noindex}
+              onChange={(e) => update("noindex", e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">{t("produits.seo.noindex.label")}</span>
+              <span className="mt-1 block text-xs text-chanv-terre/60">
+                {t("produits.seo.noindex.help")}
+              </span>
+            </span>
+          </label>
         </div>
       </section>
 
@@ -405,14 +1034,78 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
 
       <section className="card p-6 space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">Images & liens</h2>
+        {imageError && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {imageError}
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label">Image principale (URL)</label>
-            <input className="input" value={f.imagesMain} onChange={(e) => update("imagesMain", e.target.value)} />
+          <div className="space-y-2">
+            <label className="label">Image principale</label>
+            {f.imagesMain ? (
+              <div className="flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={f.imagesMain}
+                  alt="Aperçu de l'image principale"
+                  className="h-24 w-24 rounded-lg border border-chanv-terre/15 bg-white object-contain"
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={saving || uploading !== null}
+                  onClick={() => update("imagesMain", "")}
+                >
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-chanv-terre/50">Aucune image pour l&apos;instant.</p>
+            )}
+            {imageActions("main")}
+            <input
+              className="input"
+              value={f.imagesMain}
+              placeholder="…ou coller une adresse d'image"
+              onChange={(e) => update("imagesMain", e.target.value)}
+            />
           </div>
-          <div>
-            <label className="label">Galerie (URLs séparées par virgule)</label>
-            <input className="input" value={f.imagesGallery} onChange={(e) => update("imagesGallery", e.target.value)} />
+
+          <div className="space-y-2">
+            <label className="label">Galerie</label>
+            {galleryUrls.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {galleryUrls.map((url) => (
+                  <div key={url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt="Image de la galerie"
+                      className="h-24 w-24 rounded-lg border border-chanv-terre/15 bg-white object-contain"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Retirer cette image de la galerie"
+                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full border border-chanv-terre/20 bg-white text-sm leading-none text-chanv-terre/70 shadow-sm hover:text-red-600"
+                      disabled={saving || uploading !== null}
+                      onClick={() => removeGalleryUrl(url)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-chanv-terre/50">Aucune image dans la galerie.</p>
+            )}
+            {imageActions("gallery")}
+            <input
+              className="input"
+              value={f.imagesGallery}
+              placeholder="…ou coller des adresses séparées par des virgules"
+              onChange={(e) => update("imagesGallery", e.target.value)}
+            />
           </div>
           <div>
             <label className="label">Lien d'achat (FR)</label>
@@ -427,6 +1120,197 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
             <input className="input" value={f.ocsLink} onChange={(e) => update("ocsLink", e.target.value)} />
           </div>
         </div>
+
+        {studioTarget && varietyTargetIndex(studioTarget) === null && studioPicker()}
+      </section>
+
+      <section className="card p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">
+            Variétés en rotation
+          </h2>
+          <button type="button" className="btn-secondary" onClick={addVariety} disabled={saving}>
+            Ajouter une variété
+          </button>
+        </div>
+        <p className="text-sm text-chanv-terre/60">
+          Ce sont les vignettes du bloc «&nbsp;Nos variétés en rotation&nbsp;» au bas de la fiche
+          produit sur bleuh.co. Elles appartiennent à ce produit : les modifier ici ne change ni le
+          référentiel des variétés, ni les autres produits. L&apos;ordre des cartes est celui de
+          cette liste. En quittant le champ «&nbsp;Nom de la variété&nbsp;», les cases encore
+          vides reprennent les valeurs préparées dans la fiche de cette variété (écran Variétés)
+          ; ce qui est déjà rempli ici n&apos;est jamais écrasé.
+        </p>
+
+        {imageError && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {imageError}
+          </p>
+        )}
+
+        {f.rotationVarieties.length === 0 ? (
+          <p className="text-sm text-chanv-terre/50">
+            Aucune variété en rotation : le bloc n&apos;apparaîtra pas sur la fiche publique.
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {f.rotationVarieties.map((row, i) => (
+              <li key={i} className="rounded-xl border border-chanv-terre/15 bg-white/60 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-chanv-terre/50">
+                    Variété n° {i + 1}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={`Monter la variété n° ${i + 1}`}
+                      disabled={saving || uploading !== null || i === 0}
+                      onClick={() => moveVariety(i, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={`Descendre la variété n° ${i + 1}`}
+                      disabled={saving || uploading !== null || i === f.rotationVarieties.length - 1}
+                      onClick={() => moveVariety(i, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={saving || uploading !== null}
+                      onClick={() => removeVariety(i)}
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label label-required">Nom de la variété</label>
+                    <input
+                      className="input"
+                      value={row.name}
+                      placeholder="ex. Candy Kush"
+                      onChange={(e) => updateVariety(i, "name", e.target.value)}
+                      onBlur={() => applyFicheToVariety(i)}
+                      onKeyDown={(e) => {
+                        // Entrée ne doit PAS soumettre le formulaire produit
+                        // (même garde que la recherche Studio plus haut).
+                        //
+                        // Ici elle est indispensable : sans elle, Entrée
+                        // enregistre SANS déclencher `blur`, donc sans jamais
+                        // recopier la fiche — le produit partirait avec une
+                        // catégorie vide, c'est-à-dire l'orange par défaut,
+                        // précisément ce que cet écran sert à éviter. On
+                        // traite donc Entrée comme une fin de saisie du nom.
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyFicheToVariety(i);
+                        }
+                      }}
+                    />
+                    {!row.name.trim() && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Sans nom, cette variété ne sera pas enregistrée.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="label">Catégorie</label>
+                    <input
+                      className="input"
+                      list="rotation-category-suggestions"
+                      value={row.category}
+                      placeholder="ex. Hybride à dominance indica"
+                      onChange={(e) => updateVariety(i, "category", e.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-chanv-terre/50">
+                      Texte libre, affiché tel quel sous le nom de la variété.
+                    </p>
+                    {fiches.has(varietyKey(row.name)) && (
+                      <p className="mt-1 text-xs text-chanv-terre/50">
+                        Une fiche existe pour cette variété&nbsp;: ses valeurs remplissent les
+                        cases vides quand on quitte le champ du nom.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="label">THC (étiquette)</label>
+                    <input
+                      className="input"
+                      value={row.thc}
+                      placeholder="ex. THC:25%-30%"
+                      onChange={(e) => updateVariety(i, "thc", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Lien vers la fiche variété</label>
+                    <input
+                      className="input"
+                      value={row.url}
+                      placeholder="laisser vide si la carte ne doit pas être cliquable"
+                      onChange={(e) => updateVariety(i, "url", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="label">Image de la variété</label>
+                  {row.image ? (
+                    <div className="flex items-start gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={row.image}
+                        alt={`Aperçu de la variété ${row.name || i + 1}`}
+                        className="h-24 w-24 rounded-lg border border-chanv-terre/15 bg-white object-contain"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={saving || uploading !== null}
+                        onClick={() => updateVariety(i, "image", "")}
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-chanv-terre/50">Aucune image pour cette variété.</p>
+                  )}
+                  {imageActions(`variety:${i}`)}
+                  <input
+                    className="input"
+                    value={row.image}
+                    placeholder="…ou coller une adresse d'image"
+                    onChange={(e) => updateVariety(i, "image", e.target.value)}
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={row.isNew}
+                    onChange={(e) => updateVariety(i, "isNew", e.target.checked)}
+                  />
+                  Afficher la pastille «&nbsp;Nouvelle variété&nbsp;»
+                </label>
+
+                {studioTarget === `variety:${i}` && studioPicker()}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <datalist id="rotation-category-suggestions">
+          {ROTATION_CATEGORY_SUGGESTIONS.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
       </section>
 
       <section className="card p-6 space-y-4">
@@ -451,14 +1335,31 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? "Enregistrement…" : submitLabel}
         </button>
+        {/* type="button" : sans lui, un bouton dans un <form> soumet le
+            formulaire — ici il ouvrirait l'aperçu ET enregistrerait. */}
+        <button type="button" className="btn-secondary" onClick={() => setPreviewing(true)} disabled={saving}>
+          Prévisualiser
+        </button>
         {onCancel && (
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
             Annuler
           </button>
         )}
+        <span className="text-xs text-chanv-terre/60">
+          L&apos;aperçu n&apos;enregistre rien et ne publie rien.
+        </span>
       </div>
+
+      {previewing && <ProductPreview product={buildInput(f)} onClose={() => setPreviewing(false)} />}
     </form>
   );
+}
+
+function studioTargetLabel(target: ImageTarget): string {
+  if (target === "main") return " (image principale)";
+  if (target === "gallery") return " (galerie)";
+  const index = varietyTargetIndex(target);
+  return index === null ? "" : ` (variété n° ${index + 1})`;
 }
 
 function detailLabel(field: string): string {

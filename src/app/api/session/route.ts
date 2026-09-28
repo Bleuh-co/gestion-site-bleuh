@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase-admin";
 import {
-  SESSION_COOKIE,
   createSessionCookie,
   resolveRole,
   getSession,
   sessionCookieOptions,
+  sessionCookieClearOptions,
 } from "@/lib/auth-server";
 import { isEmailDomainAllowed } from "@/lib/utils";
 
@@ -96,6 +96,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
+  // Mêmes attributs qu'à la pose (SameSite/Secure/Partitioned) : sans eux, le
+  // cookie partitionné de l'iframe hub survivrait à la déconnexion.
+  cookieStore.set(sessionCookieClearOptions());
   return NextResponse.json({ ok: true });
 }

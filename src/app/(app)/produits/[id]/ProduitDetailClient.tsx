@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Product, ProductFormInput, Role } from "@/lib/types";
 import { ProductForm } from "../ProductForm";
+import { ProductPreview } from "../ProductPreview";
 import { PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS, statusBadgeClass } from "../constants";
 
 interface ProduitDetailClientProps {
@@ -22,6 +23,9 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState(false);
+  // Aperçu de la fiche enregistrée : ouvert aussi en lecture seule, il ne
+  // modifie rien. C'est le chemin pour revoir un brouillon avant de le publier.
+  const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -173,6 +177,9 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`badge ${statusBadgeClass(product.status)}`}>{STATUS_LABELS[product.status] ?? product.status}</span>
+          <button className="btn-secondary" onClick={() => setPreviewing(true)} disabled={busy}>
+            Prévisualiser
+          </button>
           {canWrite && (
             <>
               <button className="btn-secondary" onClick={() => setEditing(true)} disabled={busy}>
@@ -255,6 +262,8 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
           </div>
         </div>
       </div>
+
+      {previewing && <ProductPreview product={product} onClose={() => setPreviewing(false)} />}
     </main>
   );
 }

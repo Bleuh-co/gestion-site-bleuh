@@ -10,9 +10,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!s) redirect("/login");
 
   return (
-    <>
+    <div className="module-shell">
       <NavBar />
-      <div className="chanv-surface mx-auto max-w-5xl px-4 pb-16">{children}</div>
-    </>
+      <div className="module-content">{children}</div>
+    </div>
   );
 }

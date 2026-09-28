@@ -68,6 +68,18 @@ export interface ProductRelated {
   image?: string;
 }
 
+/**
+ * Une carte du bloc « Nos variétés en rotation » d'une fiche produit sur
+ * bleuh.co (site-bleuh ProductDetailPage.tsx) : image, nom, catégorie
+ * affichée en toutes lettres (« Hybride à dominance indica »), pastille THC,
+ * badge « Nouvelle variété ».
+ *
+ * C'est un contenu ÉDITORIAL porté par le produit, distinct du référentiel
+ * `Variety` (vue matérialisée des lots de l'ERP, non éditable) : `category`
+ * est du texte libre, pas l'enum ProductStrain. Le storefront ne s'en sert
+ * que pour choisir une couleur (`categoryColor` cherche « indica » ou
+ * « sativa » dans la chaîne), il l'affiche tel quel.
+ */
 export interface ProductRotationVariety {
   name: string;
   url: string;
@@ -104,6 +116,10 @@ export interface Product {
   currentRotation: LocalizedNullable | null;
   description: Localized;
   metaDescription: Localized;
+  seoTitle: Localized;
+  canonical: Localized;
+  ogImage: string;
+  noindex: boolean;
   details: ProductDetails;
   images: ProductImages;
   badges: ProductBadge[];
@@ -148,6 +164,36 @@ export interface ProductInput {
   currentRotation: LocalizedNullable | null;
   description: Localized;
   metaDescription: Localized;
+  // ── Référencement ────────────────────────────────────────────────────
+  // Quatre champs, une seule règle : VIDE veut dire « laisse le site
+  // décider », jamais « efface ». Aucun d'eux n'est rempli d'office, et la
+  // validation n'invente aucune valeur de repli — c'est le site public qui
+  // porte les valeurs par défaut, lui seul sait ce qu'il sait afficher.
+  //
+  // Corollaire pour qui lit ces documents : les fiches créées avant ce bloc
+  // n'ont PAS ces clés tant qu'elles n'ont pas été réenregistrées une fois.
+  // Côté consommateur, `undefined` doit donc se traiter exactement comme
+  // vide — `p.seoTitle?.fr || défaut`, jamais `p.seoTitle.fr`.
+
+  /** Titre affiché par Google. Vide → le site compose « <nom> - Bleuh ». */
+  seoTitle: Localized;
+  /**
+   * URL canonique, rognée. Vide dans l'immense majorité des cas : elle ne
+   * sert qu'aux fiches en double ou qui ont changé d'adresse. Vide reste
+   * vide — on n'y recopie SURTOUT pas l'adresse de la fiche, ce qui
+   * transformerait un champ « non renseigné » en décision éditoriale.
+   */
+  canonical: Localized;
+  /**
+   * Image des cartes de partage (Facebook, LinkedIn, Messenger). Unique,
+   * pas bilingue : c'est un visuel, il ne se traduit pas. Vide → le site
+   * retombe sur `images.main`. Ce repli n'est PAS matérialisé ici, exprès :
+   * recopier `images.main` au moment de l'enregistrement figerait une
+   * valeur qui, laissée vide, suit l'image principale du produit.
+   */
+  ogImage: string;
+  /** Demande à Google de retirer la fiche de ses résultats. */
+  noindex: boolean;
   details: ProductDetails;
   images: ProductImages;
   badges: ProductBadge[];
@@ -155,7 +201,7 @@ export interface ProductInput {
   ocsLink: string | null;
   gtin: string | null; // /^\d{8,14}$/ si fourni
   sku: string | null; // ≤64 car., unicité vérifiée en base
-  rotationVarieties: unknown[];
+  rotationVarieties: ProductRotationVariety[]; // normalisé, lignes sans nom écartées
   relatedProducts: unknown[];
   sourceNotes: string | null;
   status: ProductStatus; // défaut "draft"
@@ -164,19 +210,31 @@ export interface ProductInput {
 /**
  * Sous-ensemble de ProductInput réellement piloté par le formulaire produit.
  *
- * Ces six clés n'ont AUCUN champ dans ProductForm. Tant qu'elles étaient
- * quand même émises (`badges: []`, `rotationVarieties: []`, `wpPostId: null`…),
- * chaque enregistrement les remettait à zéro : PATCH fusionne
- * `{ ...doc.data(), ...body }`, et une clé présente dans le body gagne
- * toujours — même vide. Les omettre est ce qui les préserve.
+ * Ces cinq clés n'ont AUCUN champ dans ProductForm. Tant qu'elles étaient
+ * quand même émises (`badges: []`, `wpPostId: null`…), chaque enregistrement
+ * les remettait à zéro : PATCH fusionne `{ ...doc.data(), ...body }`, et une
+ * clé présente dans le body gagne toujours — même vide. Les omettre est ce
+ * qui les préserve.
  *
  * Corollaire : toute clé retirée d'ici doit être retirée de buildInput, et
  * inversement. Si un jour le formulaire édite les badges, on sort "badges"
  * du Omit et on l'ajoute à buildInput — les deux ensemble, jamais l'un seul.
+ *
+ * `rotationVarieties` a suivi ce chemin (ticket 3Xk5sjItspoDLkitnGrM) : le
+ * formulaire les édite désormais, donc la clé EST dans le type et EST émise
+ * par buildInput. La protection ci-dessus ne s'applique plus à elle — c'est
+ * la saisie de l'écran qui fait foi, y compris une liste vidée exprès.
+ *
+ * Le bloc référencement (`seoTitle`, `canonical`, `ogImage`, `noindex`) est
+ * ABSENT de ce Omit, et c'est voulu : la section « Référencement » édite les
+ * quatre, donc buildInput doit les émettre. Les omettre rendrait la case
+ * « retirer de Google » indécochable — la clé ne repartirait jamais à false.
+ * Le compilateur tient cette promesse : ces champs étant requis dans le type,
+ * un buildInput qui en oublierait un ne compilerait pas.
  */
 export type ProductFormInput = Omit<
   ProductInput,
-  "wpPostId" | "url" | "currentRotation" | "badges" | "rotationVarieties" | "relatedProducts"
+  "wpPostId" | "url" | "currentRotation" | "badges" | "relatedProducts"
 >;
 
 // ─────────────────────────────────────────────────────────────
@@ -259,4 +317,120 @@ export interface AuditEntry {
   action: string;        // ex. "product.create"
   target: string;        // ex. "products/abc123"
   details?: Record<string, unknown>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Référentiel des variétés (BleuhAPI /admin/varieties)
+//
+// Ce n'est PAS un CRUD : la liste est une vue matérialisée des lots réels
+// de l'ERP, reconstruite par BleuhAPI. On ne crée jamais une variété ici —
+// on ne fait que TRIER celles que l'ERP a produites (fusionner deux
+// orthographes, écarter ce qui n'est pas une variété).
+//
+// Nommage : `Variety` et non `ProductVariety` — à ne pas confondre avec
+// ProductDetails.variety (texte libre de la fiche produit) ni avec
+// ProductRotationVariety (variété en rotation affichée sur le site).
+// ─────────────────────────────────────────────────────────────
+
+/** Motifs d'exclusion — liste FERMÉE, doit rester alignée sur
+ *  VarietyReferential::EXCLUSION_KINDS côté BleuhAPI (qui rejette en 422
+ *  toute valeur hors liste). */
+export type VarietyExclusionKind = "product" | "junk" | "other";
+
+export interface Variety {
+  id: number;
+  /** Clé canonique (minuscules, sans accent ni séparateur) — sert de join. */
+  key: string;
+  name: string;
+  /** Nombre de lots, orthographes absorbées comprises. */
+  lotCount: number;
+  firstWrapDate: string | null;   // "AAAA-MM"
+  lastWrapDate: string | null;    // "AAAA-MM"
+  provinces: ProductProvince[];
+  isActive: boolean;
+  /** Noms des orthographes fusionnées dans celle-ci. */
+  absorbs: string[];
+
+  // Champs présents UNIQUEMENT quand la liste est demandée en mode curation
+  // (?curation=1) — en mode normal, les lignes fusionnées/exclues sont
+  // absentes de la réponse, donc ces champs n'ont pas lieu d'être.
+  mergedIntoId?: number | null;
+  mergedIntoName?: string | null;
+  excludedAs?: VarietyExclusionKind | null;
+  curationNote?: string | null;
+  curatedAt?: string | null;
+  isCurated?: boolean;
+  mergedCount?: number;
+}
+
+export interface VarietySummary {
+  /** Lignes brutes du référentiel (tri compris). */
+  total: number;
+  /** Ce que le sélecteur proposera réellement. */
+  vocabulary: number;
+  merged: number;
+  excluded: number;
+  /** Jamais passées en revue à la main. */
+  uncurated: number;
+}
+
+export interface VarietyListResponse {
+  success: boolean;
+  count: number;
+  data: Variety[];
+  summary?: VarietySummary;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Fiche éditoriale d'une variété
+//
+// Troisième objet « variété », et le seul qu'un humain remplit librement :
+//   - `Variety`                (ci-dessus) : ce que l'ERP a réellement
+//     emballé. Non éditable, reconstruit depuis les lots.
+//   - `ProductRotationVariety` (plus haut) : la carte telle qu'elle paraît
+//     SUR UN PRODUIT donné. Éditable, mais elle n'existe qu'à partir du
+//     moment où la variété est dans la rotation de ce produit.
+//   - `VarietyEditorial`       (ici) : ce qu'on veut voir affiché pour cette
+//     variété, indépendamment de tout produit et AVANT qu'elle n'entre en
+//     rotation.
+//
+// La fiche est un jeu de valeurs par défaut, pas une vérité qui écrase : une
+// carte de produit qui porte déjà sa propre valeur la garde. La fiche ne
+// remplit que les cases restées vides. C'est ce qui permet de préparer une
+// variété à l'avance sans réécrire l'historique des produits en ligne.
+//
+// La recopie a lieu DANS LE NAVIGATEUR, au moment où l'on finit de saisir le
+// nom de la variété dans le formulaire produit — jamais à l'écriture côté
+// serveur. Voir l'en-tête de lib/variety-editorials.ts : un héritage rejoué à
+// chaque enregistrement ne saurait pas distinguer une case jamais remplie
+// d'une case vidée exprès, et ferait revenir ce qu'on vient de retirer.
+// Conséquence à connaître : une fiche créée APRÈS la mise en ligne d'un
+// produit ne descend pas toute seule dans ses cartes.
+// ─────────────────────────────────────────────────────────────
+
+/** Champs saisissables d'une fiche éditoriale. */
+export interface VarietyEditorialInput {
+  /** Nom d'affichage, tel qu'écrit au référentiel. */
+  name: string;
+  /** Texte libre affiché sous le nom — c'est lui qui décide de la couleur. */
+  category: string | null;
+  thc: string | null;
+  image: string | null;
+  url: string | null;
+  /** Mémo interne, jamais affiché au visiteur. */
+  note: string | null;
+}
+
+export interface VarietyEditorial extends VarietyEditorialInput {
+  /** Clé canonique = id du document (cf. lib/variety-key.ts). */
+  key: string;
+  /**
+   * Clés des orthographes que le référentiel a fusionnées dans celle-ci.
+   * Une carte de produit qui porte encore l'ancienne orthographe retrouve
+   * la fiche par ce biais.
+   */
+  aliasKeys: string[];
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string | null;
 }

@@ -21,7 +21,10 @@ import type {
 // borné (MAX_PAGES), timeout par requête. Aucune clé/secret manipulé ici.
 // ─────────────────────────────────────────────────────────────
 
-const DEFAULT_BASE_URL = "https://sitebleuh-fkdfx4bpva-ue.a.run.app";
+// Le domaine PUBLIC, pas l'URL technique *.run.app : c'est lui que Googlebot
+// visite, et c'est contre lui que canoniques/robots/sitemap doivent se juger.
+// (Avant le 2026-09-10, l'audit portait sur l'URL run.app — rapports faussés.)
+const DEFAULT_BASE_URL = "https://bleuh.co";
 const MAX_PAGES = 25;
 const FETCH_TIMEOUT_MS = 8000;
 const THIN_CONTENT_WORDS = 150;

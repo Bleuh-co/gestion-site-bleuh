@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
       id,
       createdAt: now,
       updatedAt: now,
-      rotationVarieties: input.rotationVarieties as Product["rotationVarieties"],
       relatedProducts: input.relatedProducts as Product["relatedProducts"],
     };
     await ref.set({ ...input, createdAt: now, updatedAt: now });
