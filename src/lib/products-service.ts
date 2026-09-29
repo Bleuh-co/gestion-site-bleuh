@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { adminDb } from "./firebase-admin";
+import { isKnownFormatSlug, normalizeFormatSlug, PRODUCT_FORMATS } from "./product-format-pure";
 import type {
   ApiError,
   Product,
@@ -171,6 +172,17 @@ export function validateProductInput(raw: unknown): ProductInput {
   const collection = typeof p.collection === "string" ? p.collection.trim() : "";
   if (!collection) throw new ValidationError("La collection est requise.");
 
+  // Le filtre « Types » de bleuh.co ne connaît que PRODUCT_FORMATS : tout
+  // autre format rend le produit introuvable par ce filtre (ticket
+  // zNkmlB547pBJBsJKaXkV, « Vape » saisi à la main). Les écritures connues
+  // sont ramenées au slug, le reste est refusé. Vide reste permis.
+  const formatSlug = normalizeFormatSlug(p.formatSlug);
+  if (formatSlug && !isKnownFormatSlug(formatSlug)) {
+    throw new ValidationError(
+      `Format inconnu du site : « ${formatSlug} ». Choisir parmi : ${PRODUCT_FORMATS.map((f) => f.label).join(", ")}.`
+    );
+  }
+
   const gtinRaw = typeof p.gtin === "string" ? p.gtin.trim() : "";
   if (gtinRaw && !/^\d{8,14}$/.test(gtinRaw)) {
     throw new ValidationError("GTIN invalide (8 à 14 chiffres attendus).");
@@ -217,7 +229,7 @@ export function validateProductInput(raw: unknown): ProductInput {
     brand: strOrNull(p.brand),
     strain: strain as ProductStrain,
     tags: strArray(p.tags),
-    formatSlug: typeof p.formatSlug === "string" ? p.formatSlug : "",
+    formatSlug,
     weight: typeof p.weight === "string" ? p.weight : "",
     thc: typeof p.thc === "string" ? p.thc : "",
     thcMin: numOrNull(p.thcMin),

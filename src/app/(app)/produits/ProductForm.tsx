@@ -30,6 +30,7 @@ import {
   publicProductUrl,
 } from "./SeoPreview";
 import { useT } from "@/lib/i18n";
+import { isKnownFormatSlug, normalizeFormatSlug, PRODUCT_FORMATS } from "@/lib/product-format-pure";
 
 // Formulaire de création/édition produit — champs du vrai schéma
 // (validateProductInput), porté depuis le formulaire admin
@@ -135,7 +136,9 @@ function toFormState(p?: Product | null) {
     brand: p?.brand ?? "",
     strain: (p?.strain ?? "hybrid") as ProductStrain,
     tags: (p?.tags ?? []).join(", "),
-    formatSlug: p?.formatSlug ?? "",
+    // Normalisé à l'ouverture : une fiche saisie « Vape » s'affiche sur
+    // « Cartouches », et l'enregistrer suffit à la réparer en base.
+    formatSlug: normalizeFormatSlug(p?.formatSlug),
     weight: p?.weight ?? "",
     thc: p?.thc ?? "",
     thcMin: p?.thcMin ?? null,
@@ -804,8 +807,23 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
         <h2 className="text-sm font-bold uppercase tracking-wide text-chanv-terre/60">Format & THC</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="label">Format (slug)</label>
-            <input className="input" value={f.formatSlug} onChange={(e) => update("formatSlug", e.target.value)} />
+            <label className="label">Format</label>
+            {/* Liste fermée, et plus du texte libre : le filtre « Types » du
+                site compare le slug à l'identique (ticket zNkmlB547pBJBsJKaXkV). */}
+            <select className="input" value={f.formatSlug} onChange={(e) => update("formatSlug", e.target.value)}>
+              <option value="">— Non défini —</option>
+              {PRODUCT_FORMATS.map((fmt) => (
+                <option key={fmt.slug} value={fmt.slug}>
+                  {fmt.label}
+                </option>
+              ))}
+              {/* Valeur hors liste déjà en base : montrée telle quelle plutôt
+                  que remplacée en silence par la première option. Le serveur
+                  la refuse à l'enregistrement, il faut en choisir une autre. */}
+              {f.formatSlug && !isKnownFormatSlug(f.formatSlug) && (
+                <option value={f.formatSlug}>{`« ${f.formatSlug} » — inconnu du site`}</option>
+              )}
+            </select>
           </div>
           <div>
             <label className="label">Poids</label>
