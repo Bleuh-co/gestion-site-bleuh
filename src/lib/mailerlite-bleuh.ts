@@ -71,6 +71,12 @@ export interface BleuhMailerLiteClient {
    */
   getAllSentCampaigns(): Promise<Campaign[]>;
   /**
+   * Date de chaque désabonnement (`date_unsubscribe` des abonnés au statut
+   * « unsubscribed »). Classic v2 n'expose pas les désabonnements par
+   * campagne : c'est la seule source datée.
+   */
+  getUnsubscribeDates(): Promise<string[]>;
+  /**
    * HTML complet d'une campagne (GET /campaigns/{id}/content). L'API renvoie
    * une ou plusieurs variantes ([{ email_id, content }]) : on les concatène.
    */
@@ -289,6 +295,31 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     return Array.from(byId.values());
   }
 
+  async getUnsubscribeDates(): Promise<string[]> {
+    const PAGE = 1000; // /subscribers accepte des pages bien plus grandes que 100
+    const MAX_PAGES = 50; // borne de sécurité (~50 000 désabonnés)
+    const dates: string[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const url = `${this.baseUrl}/subscribers?type=unsubscribed&limit=${PAGE}&offset=${offset}`;
+      const res = await fetchWithRetry(url, { headers: this.headers() });
+      if (!res.ok) throw new Error(`ML Classic unsubscribed: ${res.status}`);
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : [];
+
+      for (const s of list as Array<Record<string, unknown>>) {
+        const d = (s.date_unsubscribe as string) || (s.date_updated as string);
+        if (d) dates.push(d);
+      }
+
+      if (list.length < PAGE) break;
+      offset += list.length;
+    }
+
+    return dates;
+  }
+
   async getCampaignContent(campaignId: string): Promise<string> {
     const res = await fetchWithRetry(
       `${this.baseUrl}/campaigns/${encodeURIComponent(campaignId)}/content`,
@@ -413,6 +444,11 @@ class MockClient implements BleuhMailerLiteClient {
         clickRate: Math.round((clickCount / recipients) * 10000) / 100,
       };
     });
+  }
+
+  async getUnsubscribeDates(): Promise<string[]> {
+    // Quelques désabonnements le lendemain de chaque campagne fictive.
+    return Array.from({ length: 18 }, (_, i) => `2026-0${(i % 6) + 1}-16 10:00:00`);
   }
 
   async getCampaignContent(campaignId: string): Promise<string> {

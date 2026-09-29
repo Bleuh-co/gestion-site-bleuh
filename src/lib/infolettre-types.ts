@@ -58,11 +58,16 @@ export interface CampaignsSummary {
   totalRecipients: number;
   avgOpenRate: number; // % pondéré
   avgClickRate: number; // % pondéré
+  unsubscribes: number; // désabonnements datés dans la période
+  unsubscribeRate: number; // % = désabonnements / destinataires de la période
 }
 
 export interface CampaignsResponse {
-  summary: CampaignsSummary;
+  summary: CampaignsSummary; // toutes périodes confondues
   campaigns: Campaign[];
+  // Date de chaque désabonnement ("YYYY-MM-DD HH:MM:SS"), sans identité :
+  // l'écran recalcule le taux sur la période choisie sans rappeler l'API.
+  unsubscribeDates: string[];
 }
 
 export interface MLGroup {
