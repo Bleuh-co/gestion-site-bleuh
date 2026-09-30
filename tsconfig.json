@@ -6,6 +6,10 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // `npm test` passe les .test.ts à `node --test`, qui exige l'extension
+    // explicite dans les imports ESM (voir site-bleuh/tsconfig.json, même
+    // besoin). Sans effet sur le build (noEmit).
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

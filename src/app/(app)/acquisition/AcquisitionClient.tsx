@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useT } from "@/lib/i18n";
 import { LineChart } from "@/app/(app)/infolettre/charts/LineChart";
 import { BarChart } from "@/app/(app)/infolettre/charts/BarChart";
-import { formatDuration, type Channel } from "@/lib/acquisition-pure";
+import { formatDuration, formatFrictionOutcome, type Channel, type FrictionRowType } from "@/lib/acquisition-pure";
 
 /** Teinte de marque (brand-600). Contraste vérifié ≥ 3:1 sur la carte. */
 const OR = "#8A7648";
@@ -56,12 +56,22 @@ interface DayPoint {
   sessions: number;
   retailerClicks: number;
 }
+interface FrictionRow {
+  id: string;
+  type: FrictionRowType;
+  page: string;
+  libelle: string;
+  statut: number | null;
+  count: number;
+  lastDay: string;
+}
 interface AcquisitionResult {
   generatedAt: string;
   period: Period;
   channels: ChannelRow[];
   campaigns: CampaignRow[];
   pages: PageRow[];
+  frictions: FrictionRow[];
   series: DayPoint[];
   totals: {
     sessions: number;
@@ -351,6 +361,46 @@ export function AcquisitionClient() {
                   {data.pages.length === 0 && (
                     <tr>
                       <td colSpan={3} className="py-6 text-center text-chanv-terre/40">
+                        {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="card p-4 mt-6">
+            <h2 className="text-base font-semibold mb-1 m-0">{t("acq.frictions.title")}</h2>
+            <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.frictions.help")}</p>
+            <div className="table-scroll">
+              <table className="table-wide text-sm">
+                <thead>
+                  <tr className="text-left border-b border-chanv-fibre">
+                    <th className="py-2 pr-3">{t("acq.frictions.col.type")}</th>
+                    <th className="py-2 px-3">{t("acq.frictions.col.page")}</th>
+                    <th className="py-2 px-3">{t("acq.frictions.col.outcome")}</th>
+                    <th className="py-2 px-3 text-right">{t("acq.frictions.col.count")}</th>
+                    <th className="py-2 pl-3 text-right">{t("acq.frictions.col.lastDay")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.frictions.slice(0, 20).map((f) => (
+                    <tr key={f.id} className="border-b border-chanv-fibre/60 last:border-0">
+                      <td className="py-2 pr-3">{t(`acq.frictions.type.${f.type}`)}</td>
+                      <td className="py-2 px-3 font-mono text-xs">{f.page}</td>
+                      <td className="py-2 px-3 text-chanv-terre/70">
+                        {formatFrictionOutcome(f.libelle, f.statut)}
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums">{nf.format(f.count)}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums">
+                        {f.lastDay ? shortDay(f.lastDay) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.frictions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
                         {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
                       </td>
                     </tr>

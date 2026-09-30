@@ -103,6 +103,20 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.autre": "Autre",
     "acq.footnote": "Jours en UTC · mesure premier-partie, sous réserve du consentement aux témoins",
     "acq.generatedAt": "Calculé le",
+    "acq.frictions.title": "Frictions sur le site",
+    "acq.frictions.help":
+      "Ce qui a bloqué ou agacé les visiteurs de bleuh.co sur la période — mesure anonyme, sans identifiant ni adresse IP.",
+    "acq.frictions.col.type": "Type",
+    "acq.frictions.col.page": "Page",
+    "acq.frictions.col.outcome": "Ce qui s'est passé",
+    "acq.frictions.col.count": "Nombre",
+    "acq.frictions.col.lastDay": "Dernier jour",
+    "acq.frictions.type.erreur_js": "Erreur JavaScript",
+    "acq.frictions.type.echec_api": "Appel au serveur refusé ou échoué",
+    "acq.frictions.type.lenteur_api": "Réponse lente (8 s et plus)",
+    "acq.frictions.type.clic_rageur": "Clics répétés au même endroit",
+    "acq.frictions.type.clic_mort": "Clic sans effet",
+    "acq.frictions.type.autres": "Autres (plafond quotidien atteint)",
 
     "gsc.title": "Performance Google",
     "gsc.subtitle":
@@ -330,6 +344,20 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.autre": "Other",
     "acq.footnote": "Days in UTC · first-party measurement, subject to cookie consent",
     "acq.generatedAt": "Computed on",
+    "acq.frictions.title": "Friction on the site",
+    "acq.frictions.help":
+      "What blocked or frustrated bleuh.co visitors over the period — anonymous measurement, no identifier or IP address.",
+    "acq.frictions.col.type": "Type",
+    "acq.frictions.col.page": "Page",
+    "acq.frictions.col.outcome": "What happened",
+    "acq.frictions.col.count": "Count",
+    "acq.frictions.col.lastDay": "Last day",
+    "acq.frictions.type.erreur_js": "JavaScript error",
+    "acq.frictions.type.echec_api": "Failed or refused server call",
+    "acq.frictions.type.lenteur_api": "Slow response (8 s or more)",
+    "acq.frictions.type.clic_rageur": "Repeated clicks in the same spot",
+    "acq.frictions.type.clic_mort": "Click with no effect",
+    "acq.frictions.type.autres": "Other (daily cap reached)",
 
     "gsc.title": "Google Performance",
     "gsc.subtitle":
@@ -543,6 +571,20 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.autre": "Otro",
     "acq.footnote": "Días en UTC · medición propia, sujeta al consentimiento de cookies",
     "acq.generatedAt": "Calculado el",
+    "acq.frictions.title": "Fricciones en el sitio",
+    "acq.frictions.help":
+      "Lo que bloqueó o frustró a los visitantes de bleuh.co durante el período — medición anónima, sin identificador ni dirección IP.",
+    "acq.frictions.col.type": "Tipo",
+    "acq.frictions.col.page": "Página",
+    "acq.frictions.col.outcome": "Qué pasó",
+    "acq.frictions.col.count": "Cantidad",
+    "acq.frictions.col.lastDay": "Último día",
+    "acq.frictions.type.erreur_js": "Error de JavaScript",
+    "acq.frictions.type.echec_api": "Llamada al servidor rechazada o fallida",
+    "acq.frictions.type.lenteur_api": "Respuesta lenta (8 s o más)",
+    "acq.frictions.type.clic_rageur": "Clics repetidos en el mismo lugar",
+    "acq.frictions.type.clic_mort": "Clic sin efecto",
+    "acq.frictions.type.autres": "Otros (límite diario alcanzado)",
 
     "gsc.title": "Rendimiento Google",
     "gsc.subtitle":

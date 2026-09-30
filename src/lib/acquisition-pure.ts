@@ -133,6 +133,94 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// ─────────────────────────────────────────────────────────────
+// Frictions — où les visiteurs butent (écrites par site-bleuh, /api/friction)
+// ─────────────────────────────────────────────────────────────
+// Duplication délibérée avec site-bleuh/src/lib/friction-pure.ts (mêmes 5
+// types, plus `autres`) : dépôts séparés, aucun paquet partagé — même parti
+// pris que traffic-pure.ts. AUCUNE IDENTITÉ dans ce qui suit : ni visiteur, ni
+// IP, seulement des compteurs par signature (type + page + libellé + statut).
+
+/**
+ * Les 5 types écrits par site-bleuh, plus `autres` : le document fourre-tout
+ * du plafond anti-abus quotidien (voir /api/friction, FRICTION_OVERFLOW_ID).
+ */
+export const FRICTION_TYPES = [
+  "erreur_js",
+  "echec_api",
+  "lenteur_api",
+  "clic_rageur",
+  "clic_mort",
+  "autres",
+] as const;
+export type FrictionRowType = (typeof FRICTION_TYPES)[number];
+
+const FRICTION_TYPE_SET: ReadonlySet<string> = new Set(FRICTION_TYPES);
+
+function frictionRowType(v: unknown): FrictionRowType {
+  return typeof v === "string" && FRICTION_TYPE_SET.has(v) ? (v as FrictionRowType) : "autres";
+}
+
+export interface FrictionInput {
+  /** Identifiant du document (la signature) — sert à recoller les jours. */
+  id: string;
+  type?: unknown;
+  page?: unknown;
+  libelle?: unknown;
+  statut?: unknown;
+  n?: unknown;
+  /** Jour UTC (`YYYY-MM-DD`) du document d'où provient cette ligne. */
+  date?: unknown;
+}
+
+export interface FrictionRow {
+  id: string;
+  type: FrictionRowType;
+  page: string;
+  libelle: string;
+  statut: number | null;
+  count: number;
+  /** Dernier jour (`YYYY-MM-DD`) où cette friction a été vue, sur la période demandée. */
+  lastDay: string;
+}
+
+/**
+ * Agrège les lignes de friction (un document par jour ET par signature) par
+ * SIGNATURE à travers toute la période : même identifiant de document, même
+ * friction — un seul jour suffit à la décrire, les autres n'ajoutent que leur
+ * compte et, s'il est plus récent, leur jour.
+ */
+export function aggregateFrictions(rows: FrictionInput[]): FrictionRow[] {
+  const byId = new Map<string, FrictionRow>();
+  for (const r of rows) {
+    if (!r.id) continue; // sécurité : sans identifiant, rien à recoller entre les jours
+    const count = num(r.n);
+    const day = typeof r.date === "string" ? r.date : "";
+    const existing = byId.get(r.id);
+    if (existing) {
+      existing.count += count;
+      if (day > existing.lastDay) existing.lastDay = day;
+    } else {
+      byId.set(r.id, {
+        id: r.id,
+        type: frictionRowType(r.type),
+        page: typeof r.page === "string" && r.page !== "" ? r.page : "—",
+        libelle: typeof r.libelle === "string" ? r.libelle : "",
+        statut: typeof r.statut === "number" && Number.isFinite(r.statut) ? r.statut : null,
+        count,
+        lastDay: day,
+      });
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.count - a.count);
+}
+
+/** « GET /api/produits · 500 » — le libellé, et le statut quand il y en a un. */
+export function formatFrictionOutcome(libelle: string, statut: number | null): string {
+  const base = libelle || "—";
+  return statut != null ? `${base} · ${statut}` : base;
+}
+
 /** Nombre de `select_retailer` porté par une ligne de source. */
 function retailerClicksOf(events: unknown): number {
   if (!events || typeof events !== "object") return 0;
@@ -178,6 +266,7 @@ export interface AcquisitionReport {
   channels: ChannelRow[];
   campaigns: CampaignRow[];
   pages: PageRow[];
+  frictions: FrictionRow[];
   series: DayPoint[];
   totals: {
     sessions: number;
@@ -204,9 +293,10 @@ export function lastNDaysUtc(days: number, now: Date = new Date()): string[] {
 export function buildAcquisitionReport(input: {
   trafficSources: TrafficSourceInput[];
   pages: PageInput[];
+  frictions: FrictionInput[];
   days: string[];
 }): AcquisitionReport {
-  const { trafficSources, pages, days } = input;
+  const { trafficSources, pages, frictions, days } = input;
 
   const channels = new Map<Channel, ChannelRow>();
   const campaigns = new Map<string, CampaignRow>();
@@ -305,6 +395,7 @@ export function buildAcquisitionReport(input: {
       (a, b) => b.sessions - a.sessions || b.retailerClicks - a.retailerClicks
     ),
     pages: pageRows,
+    frictions: aggregateFrictions(frictions),
     series: days.map((d) => byDay.get(d) as DayPoint),
     totals: {
       sessions: totalSessions,
