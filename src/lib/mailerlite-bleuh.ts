@@ -77,6 +77,12 @@ export interface BleuhMailerLiteClient {
    */
   getUnsubscribeDates(): Promise<string[]>;
   /**
+   * Valeur du champ `key` pour chaque abonné ACTIF ("" si vide). Parcourt
+   * toute la liste par pages de 1000 (≈ 12 requêtes, 1 min pour 12 000
+   * abonnés) : réservé au collecteur, jamais à l'ouverture d'un écran.
+   */
+  getActiveFieldValues(key: string): Promise<string[]>;
+  /**
    * HTML complet d'une campagne (GET /campaigns/{id}/content). L'API renvoie
    * une ou plusieurs variantes ([{ email_id, content }]) : on les concatène.
    */
@@ -320,6 +326,32 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     return dates;
   }
 
+  async getActiveFieldValues(key: string): Promise<string[]> {
+    const PAGE = 1000;
+    const MAX_PAGES = 100; // borne de sécurité (~100 000 abonnés actifs)
+    const values: string[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const url = `${this.baseUrl}/subscribers?type=active&limit=${PAGE}&offset=${offset}`;
+      const res = await fetchWithRetry(url, { headers: this.headers() });
+      if (!res.ok) throw new Error(`ML Classic active subscribers: ${res.status}`);
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : [];
+
+      for (const s of list as Array<Record<string, unknown>>) {
+        const fields = Array.isArray(s.fields) ? (s.fields as Array<Record<string, unknown>>) : [];
+        const value = fields.find((f) => f.key === key)?.value;
+        values.push(value === null || value === undefined ? "" : String(value));
+      }
+
+      if (list.length < PAGE) break;
+      offset += list.length;
+    }
+
+    return values;
+  }
+
   async getCampaignContent(campaignId: string): Promise<string> {
     const res = await fetchWithRetry(
       `${this.baseUrl}/campaigns/${encodeURIComponent(campaignId)}/content`,
@@ -373,7 +405,11 @@ class MockClient implements BleuhMailerLiteClient {
     email: `abonne${i + 1}@example.com`,
     status: (i % 5 === 0 ? "unsubscribed" : "active") as SubscriberStatus,
     source: "mock",
-    fields: { name: `Abonné ${i + 1}`, city: i % 2 ? "Montréal" : "Québec" },
+    fields: {
+      name: `Abonné ${i + 1}`,
+      city: i % 2 ? "Montréal" : "Québec",
+      persona: ["Consumer", "Budtender", "Retailer", ""][i % 4],
+    },
     groups: i % 3 === 0 ? ["g1"] : ["g2"],
     subscribedAt: "2026-01-01 00:00:00",
     createdAt: "2026-01-01 00:00:00",
@@ -422,6 +458,7 @@ class MockClient implements BleuhMailerLiteClient {
     return [
       { id: "1", key: "name", name: "Nom", type: "text" },
       { id: "2", key: "city", name: "Ville", type: "text" },
+      { id: "3", key: "persona", name: "Persona", type: "text" },
     ];
   }
 
@@ -449,6 +486,12 @@ class MockClient implements BleuhMailerLiteClient {
   async getUnsubscribeDates(): Promise<string[]> {
     // Quelques désabonnements le lendemain de chaque campagne fictive.
     return Array.from({ length: 18 }, (_, i) => `2026-0${(i % 6) + 1}-16 10:00:00`);
+  }
+
+  async getActiveFieldValues(key: string): Promise<string[]> {
+    return this.subs
+      .filter((s) => s.status === "active")
+      .map((s) => String(s.fields[key] ?? ""));
   }
 
   async getCampaignContent(campaignId: string): Promise<string> {

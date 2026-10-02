@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Role } from "@/lib/types";
 import type { MailerLiteAccount, MLField, MLGroup } from "@/lib/infolettre-types";
+import { PERSONAS, type PersonaBreakdown } from "@/lib/infolettre-personas";
 import { SubscriberTable } from "./SubscriberTable";
 import { SnapshotsPanel } from "./SnapshotsPanel";
 import { CampaignsPanel } from "./CampaignsPanel";
@@ -122,7 +123,13 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
           {tab === "subscribers" && (
             <SubscriberTable fetchUrl="/api/infolettre/subscribers" cursorMode />
           )}
-          {tab === "groups" && <GroupsPanel />}
+          {tab === "groups" && (
+            <>
+              <PersonasPanel />
+              <h3 className="font-bold mb-3">Groupes MailerLite</h3>
+              <GroupsPanel />
+            </>
+          )}
           {tab === "fields" && <FieldsPanel />}
           {tab === "campaigns" && <CampaignsPanel />}
           {tab === "trends" && <TrendsPanel canWrite={canWrite} />}
@@ -130,6 +137,83 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
         </>
       )}
     </main>
+  );
+}
+
+interface PersonasResponse {
+  capturedAt: string | null;
+  byPersona: PersonaBreakdown | null;
+}
+
+function fmtDateTime(iso: string | null): string {
+  const d = new Date(iso ?? "");
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-CA", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Personas : comptés par le collecteur (toutes les 6 h), pas en direct — le
+// champ n'est pas filtrable par l'API et il faut parcourir toute la liste.
+function PersonasPanel() {
+  const [data, setData] = useState<PersonasResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/infolettre/personas", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((d: PersonasResponse) => setData(d))
+      .catch((e) => setError(e.message));
+  }, []);
+
+  const counts = data?.byPersona;
+
+  return (
+    <div className="section-card mb-6">
+      <div className="mb-3">
+        <h3 className="font-bold">Personas</h3>
+        <p className="text-sm text-chanv-terre/55">
+          Abonnés actifs selon leur réponse à « Qu’est-ce qui vous amène chez Bleuh? » dans le
+          formulaire d&apos;infolettre de bleuh.co (champ « Persona » de MailerLite).
+        </p>
+      </div>
+      {error ? (
+        <p className="text-sm text-rose-700">{error}</p>
+      ) : !data ? (
+        <p className="text-sm text-gray-400">Chargement…</p>
+      ) : !counts ? (
+        <p className="text-sm text-chanv-terre/60">
+          Pas encore comptés : ils le seront à la prochaine capture (toutes les 6 h).
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {PERSONAS.map((p) => (
+              <div key={p.value} className="card p-4">
+                <p className="font-semibold">{p.value}</p>
+                <p className="text-xs text-chanv-terre/55 mt-0.5">{p.label}</p>
+                <p className="text-2xl font-bold mt-2">{counts[p.value].toLocaleString("fr-CA")}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-chanv-terre/55 mt-3">
+            Sans persona : {counts.none.toLocaleString("fr-CA")} (inscrits avant le 2 octobre 2026,
+            importés ou venus du pop-up MailerLite hors Québec)
+            {counts.other > 0 ? ` · autre valeur : ${counts.other.toLocaleString("fr-CA")}` : ""} ·
+            compté le {fmtDateTime(data.capturedAt)}
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 

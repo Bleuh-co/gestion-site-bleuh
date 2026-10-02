@@ -1,6 +1,7 @@
 import "server-only";
 import { adminDb } from "./firebase-admin";
-import { getBleuhClient } from "./mailerlite-bleuh";
+import { getBleuhClient, type BleuhMailerLiteClient } from "./mailerlite-bleuh";
+import { PERSONA_FIELD_KEY, tallyPersonas, type PersonaBreakdown } from "./infolettre-personas";
 import type { Campaign } from "./infolettre-types";
 import type {
   CampaignStatHistory,
@@ -36,9 +37,22 @@ function samePoint(a: CampaignStatPoint, b: Omit<CampaignStatPoint, "capturedAt"
 }
 
 /**
+ * Actifs par persona : parcourt toute la liste (≈ 1 min). Un échec ici ne
+ * doit pas faire perdre le reste de la capture → null.
+ */
+async function collectPersonas(client: BleuhMailerLiteClient): Promise<PersonaBreakdown | null> {
+  try {
+    return tallyPersonas(await client.getActiveFieldValues(PERSONA_FIELD_KEY));
+  } catch (e) {
+    console.error("[infolettre/collect] répartition par persona :", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
  * Capture et STOCKE l'état MailerLite courant (server only).
  *
- * a. compte + groupes → doc `infolettre_metrics/{ISO-créneau}` (idempotent 6h)
+ * a. compte + groupes + personas → doc `infolettre_metrics/{ISO-créneau}` (idempotent 6h)
  * b. campagnes envoyées → upsert `infolettre_campaign_stats/{campaignId}`,
  *    append d'un point d'historique UNIQUEMENT si les chiffres ont bougé.
  */
@@ -59,8 +73,11 @@ export async function collectSnapshot(): Promise<CollectSummary> {
     total: g.total,
   }));
 
-  // ── b. Campagnes envoyées (toutes, dédupliquées par id) ──────
-  const campaigns: Campaign[] = await client.getAllSentCampaigns();
+  // ── b. Campagnes envoyées (toutes, dédupliquées par id), personas en parallèle ──
+  const [campaigns, byPersona]: [Campaign[], PersonaBreakdown | null] = await Promise.all([
+    client.getAllSentCampaigns(),
+    collectPersonas(client),
+  ]);
 
   const snapshot: MetricsSnapshot = {
     capturedAt,
@@ -71,6 +88,7 @@ export async function collectSnapshot(): Promise<CollectSummary> {
     },
     byGroup,
     campaignsSent: campaigns.length,
+    byPersona,
   };
 
   // Écriture du snapshot — set() sur l'id de créneau : ré-appel dans le même

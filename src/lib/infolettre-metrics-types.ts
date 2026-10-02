@@ -9,6 +9,8 @@
  * Les briques Tendances / IA / Alertes viendront LIRE ces docs (phases suivantes).
  */
 
+import type { PersonaBreakdown } from "./infolettre-personas";
+
 /** Un point d'historique de performance d'une campagne. */
 export interface CampaignStatPoint {
   capturedAt: string; // ISO
@@ -39,6 +41,8 @@ export interface MetricsSnapshot {
   };
   byGroup: SnapshotGroup[];
   campaignsSent: number; // nb de campagnes envoyées connues au moment de la capture
+  /** Actifs par persona — absent avant le 2026-10-02, null si le calcul a échoué. */
+  byPersona?: PersonaBreakdown | null;
 }
 
 /**
