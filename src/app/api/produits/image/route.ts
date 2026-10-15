@@ -79,6 +79,10 @@ export async function POST(req: NextRequest) {
         mimeType,
         displayName: productName || undefined,
         tags: productName ? [productName] : [],
+        // Adresse déjà publique de cette même image, pour que Studio puisse
+        // un jour la relier plutôt que de ne connaître que son propre dépôt
+        // (cf. docstring de pushImageToStudio).
+        sourceUrl: stored.url,
       });
     });
 

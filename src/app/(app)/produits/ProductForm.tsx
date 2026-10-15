@@ -259,6 +259,14 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
   const [studioAssets, setStudioAssets] = useState<StudioAsset[]>([]);
   const [studioLoading, setStudioLoading] = useState(false);
   const [studioMessage, setStudioMessage] = useState<string | null>(null);
+  // Pagination « Voir plus » : Studio pagine par curseur quand on PARCOURT
+  // (pas de recherche) et par numéro de page quand on CHERCHE — jamais les
+  // deux en même temps (cf. src/lib/studio-chanv.ts, listBleuhImages). On ne
+  // garde donc que ce que la dernière réponse a renvoyé, sans deviner.
+  const [studioCursor, setStudioCursor] = useState<string | null>(null);
+  const [studioPage, setStudioPage] = useState(1);
+  const [studioHasMore, setStudioHasMore] = useState(false);
+  const [studioLoadingMore, setStudioLoadingMore] = useState(false);
 
   // Fiches éditoriales des variétés — servent à pré-remplir une carte une fois
   // son nom saisi. C'est le SEUL endroit où une fiche entre dans un produit :
@@ -527,20 +535,70 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
     }
   }
 
+  interface StudioSearchResponse {
+    assets?: StudioAsset[];
+    unavailable?: boolean;
+    message?: string;
+    hasMore?: boolean;
+    nextCursor?: string | null;
+    page?: number;
+    error?: string;
+  }
+
+  async function fetchStudioPage(
+    q: string,
+    opts: { cursor?: string | null; page?: number } = {}
+  ): Promise<StudioSearchResponse> {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (opts.cursor) params.set("cursor", opts.cursor);
+    if (opts.page && opts.page > 1) params.set("page", String(opts.page));
+    const res = await fetch(`/api/produits/studio/search?${params.toString()}`);
+    const data = (await res.json().catch(() => ({}))) as StudioSearchResponse;
+    if (!res.ok) throw new Error(data.error || `Studio Chanv a répondu ${res.status}.`);
+    return data;
+  }
+
   async function loadStudioAssets(q: string) {
     setStudioLoading(true);
     setStudioMessage(null);
+    setStudioCursor(null);
+    setStudioPage(1);
+    setStudioHasMore(false);
     try {
-      const res = await fetch(`/api/produits/studio/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Studio Chanv a répondu ${res.status}.`);
+      const data = await fetchStudioPage(q);
       setStudioAssets(Array.isArray(data.assets) ? data.assets : []);
       if (data.unavailable && data.message) setStudioMessage(data.message);
+      setStudioHasMore(Boolean(data.hasMore));
+      setStudioCursor(data.nextCursor ?? null);
+      setStudioPage(typeof data.page === "number" ? data.page : 1);
     } catch (err) {
       setStudioAssets([]);
       setStudioMessage(err instanceof Error ? err.message : "Chargement impossible.");
     } finally {
       setStudioLoading(false);
+    }
+  }
+
+  // « Voir plus » ajoute à la grille existante au lieu de la remplacer — une
+  // recherche (Filtrer) repart toujours de zéro via loadStudioAssets.
+  async function loadMoreStudioAssets() {
+    if (studioLoadingMore || !studioHasMore) return;
+    setStudioLoadingMore(true);
+    setStudioMessage(null);
+    try {
+      const data = studioQuery.trim()
+        ? await fetchStudioPage(studioQuery, { page: studioPage + 1 })
+        : await fetchStudioPage(studioQuery, { cursor: studioCursor });
+      const more = Array.isArray(data.assets) ? data.assets : [];
+      setStudioAssets((prev) => [...prev, ...more]);
+      setStudioHasMore(Boolean(data.hasMore));
+      setStudioCursor(data.nextCursor ?? null);
+      setStudioPage(typeof data.page === "number" ? data.page : studioPage + 1);
+    } catch (err) {
+      setStudioMessage(err instanceof Error ? err.message : "Chargement impossible.");
+    } finally {
+      setStudioLoadingMore(false);
     }
   }
 
@@ -678,6 +736,19 @@ export function ProductForm({ initial, submitLabel, saving, error, onSubmit, onC
                     </span>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {studioHasMore && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={studioLoadingMore || studioLoading}
+                  onClick={() => void loadMoreStudioAssets()}
+                >
+                  {studioLoadingMore ? "Chargement…" : "Voir plus"}
+                </button>
               </div>
             )}
           </div>

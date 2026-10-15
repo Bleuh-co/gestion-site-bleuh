@@ -1,4 +1,14 @@
 import "server-only";
+import crypto from "node:crypto";
+import sharp from "sharp";
+import heicConvert from "heic-convert";
+
+import {
+  buildStudioAssetListParams,
+  convertedFilename,
+  detectStudioConversion,
+  parseStudioDuplicateCheck,
+} from "./studio-chanv-pure";
 
 /**
  * Studio Chanv — bibliothèque d'assets de marque du groupe.
@@ -32,6 +42,7 @@ const PACKAGING_CATEGORY = "packaging";
 
 const LIST_TIMEOUT_MS = 15_000;
 const DOWNLOAD_TIMEOUT_MS = 30_000;
+const CHECK_DUPLICATE_TIMEOUT_MS = 10_000;
 /** Le pipeline d'upload Studio (Drive + tag IA Gemini) est lent par nature. */
 const UPLOAD_TIMEOUT_MS = 120_000;
 
@@ -41,6 +52,20 @@ export interface StudioAssetSummary {
   displayName: string;
   thumbUrl: string;
   format: string;
+}
+
+export interface StudioAssetPage {
+  assets: StudioAssetSummary[];
+  /** Encore des résultats disponibles après ceux-ci (« Voir plus »). */
+  hasMore: boolean;
+  /**
+   * Curseur à renvoyer pour continuer à PARCOURIR (pas de recherche) —
+   * `null` quand il n'y en a plus, ou quand une recherche est en cours
+   * (Studio pagine alors par page, cf. buildStudioAssetListParams).
+   */
+  nextCursor: string | null;
+  /** Page courante, pertinente seulement en mode recherche. */
+  page: number;
 }
 
 export interface StudioAssetBytes {
@@ -91,28 +116,45 @@ export function studioThumbUrl(assetId: string, size = 400): string {
 }
 
 /**
- * Liste les images de la marque Bleuh, filtrées localement sur `query`.
+ * Liste les images de la marque Bleuh, une page à la fois.
  *
- * Le paramètre `search` de Studio déclenche un chemin de recherche lent
- * (>15 s à froid → abort systématique constaté en production, cf.
- * hub-chanv/lib/brand-guide.js). On liste donc la marque — rapide — et on
- * classe ici.
+ * Avant le 15/10/2026 : la fonction demandait les 60 images les plus
+ * récentes et filtrait `query` EN LOCAL dans ces 60 — une image plus
+ * ancienne que les 60 dernières était introuvable, quel que soit le terme
+ * cherché. Depuis la refonte de la recherche côté Studio (Typesense + cache
+ * d'embeddings, routes/assets.js `handleAssetList`, audit du 23/07/2026), le
+ * paramètre `search` ne charge plus 5000 docs arbitraires : il interroge tout
+ * le catalogue et pagine réellement. L'ancien commentaire sur un abort
+ * systématique (>15 s) datait du chemin legacy d'avant cette refonte — il ne
+ * décrit plus le comportement actuel, d'où le changement ici.
+ *
+ * Studio a DEUX pagination différentes selon qu'on cherche ou qu'on
+ * parcourt (voir buildStudioAssetListParams) : sans recherche, on avance par
+ * `cursor` (curseur Firestore, trié par récence) ; avec une recherche, on
+ * avance par `page`. L'appelant doit donc renvoyer `cursor` OU `page` suivant
+ * le cas — exactement ce que renvoie `StudioAssetPage`.
  */
-export async function listBleuhImages(query = "", limit = 60): Promise<StudioAssetSummary[]> {
+export async function listBleuhImages(
+  input: { query?: string; limit?: number; cursor?: string | null; page?: number } = {}
+): Promise<StudioAssetPage> {
   if (!isStudioConfigured()) {
     throw new Error("STUDIO_INGEST_KEY absent : la bibliothèque Studio Chanv n'est pas branchée.");
   }
-  const params = new URLSearchParams({
+  const limit = Math.min(100, Math.max(1, input.limit ?? 60));
+  const params = buildStudioAssetListParams({
     brand: BLEUH_BRAND,
-    asset_type: "image",
-    limit: String(limit),
+    assetType: "image",
+    limit,
+    search: input.query ?? "",
+    cursor: input.cursor ?? null,
+    page: input.page ?? 1,
   });
   const res = await studioFetch(`/api/assets?${params.toString()}`);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`Studio Chanv a répondu ${res.status}. ${body.slice(0, 200)}`);
   }
-  const data = (await res.json()) as { assets?: unknown };
+  const data = (await res.json()) as { assets?: unknown; pagination?: Record<string, unknown> };
   const raw = Array.isArray(data.assets) ? (data.assets as Record<string, unknown>[]) : [];
 
   const assets: StudioAssetSummary[] = raw
@@ -134,13 +176,13 @@ export async function listBleuhImages(query = "", limit = 60): Promise<StudioAss
       };
     });
 
-  const q = query.trim().toLowerCase();
-  if (!q) return assets;
-  const terms = q.split(/\s+/).filter(Boolean);
-  return assets.filter((a) => {
-    const haystack = `${a.displayName} ${a.name}`.toLowerCase();
-    return terms.every((t) => haystack.includes(t));
-  });
+  const pagination = data.pagination ?? {};
+  return {
+    assets,
+    hasMore: Boolean(pagination.hasNext),
+    nextCursor: typeof pagination.nextCursor === "string" ? pagination.nextCursor : null,
+    page: typeof pagination.page === "number" ? pagination.page : input.page ?? 1,
+  };
 }
 
 /**
@@ -195,11 +237,82 @@ export async function downloadStudioAsset(assetId: string): Promise<StudioAssetB
     }
   }
 
-  return {
-    bytes,
-    contentType: res.headers.get("content-type") || "application/octet-stream",
-    filename,
-  };
+  const contentType = res.headers.get("content-type") || "application/octet-stream";
+
+  // HEIC/TIFF : le site ne les accepte pas (lib/product-images.ts,
+  // ALLOWED_IMAGE_MIME) — l'image choisie dans Studio serait rejetée par
+  // `assertUploadableImage` au lieu d'être utilisable. On convertit ici,
+  // avant que l'appelant (route image-from-studio) n'écrive dans le bucket,
+  // pour que la conversion soit systématique quel que soit l'appelant futur.
+  const conversion = detectStudioConversion(contentType, filename);
+  if (conversion) {
+    try {
+      const jpegBytes = await convertToJpeg(bytes, conversion);
+      return {
+        bytes: jpegBytes,
+        contentType: "image/jpeg",
+        filename: convertedFilename(filename, assetId),
+      };
+    } catch (e) {
+      throw new Error(
+        `Image ${conversion.toUpperCase()} reçue de Studio Chanv, conversion en JPEG impossible : ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
+    }
+  }
+
+  return { bytes, contentType, filename };
+}
+
+/** Convertit des octets HEIC/HEIF ou TIFF en JPEG. */
+async function convertToJpeg(bytes: Buffer, kind: "heic" | "tiff"): Promise<Buffer> {
+  if (kind === "tiff") {
+    // sharp (libvips) lit le TIFF nativement, aucune dépendance supplémentaire.
+    return sharp(bytes).jpeg({ quality: 90 }).toBuffer();
+  }
+  // HEIC/HEIF : les binaires sharp/libvips publiés sur npm n'embarquent PAS le
+  // décodeur HEIF (licence) — seul AVIF est supporté en entrée (vérifié le
+  // 15/10/2026 : `sharp.format.heif.input.fileSuffix` ne contient que
+  // `.avif`). `heic-convert` décode en JS pur (heic-decode/libheif en wasm),
+  // sans compilation native, donc sans risque de rupture sur `npm run build`.
+  return heicConvert({ buffer: bytes, format: "JPEG", quality: 0.92 });
+}
+
+/**
+ * Demande à Studio si l'un de ces hachages SHA-256 est déjà dans sa
+ * bibliothèque (`POST /api/assets/check-duplicates`), SANS envoyer les
+ * octets. Sert à éviter d'envoyer le fichier en entier (jusqu'à 15 Mo, pipeline
+ * de dépôt de plusieurs dizaines de secondes) quand on sait déjà qu'il existe.
+ *
+ * ⚠️ Limite constatée côté Studio (routes/assets.js, check-duplicates) : la
+ * réponse ne contient QUE les hachages trouvés (`duplicate_hashes`), jamais
+ * l'id de l'asset existant — contrairement au 409 de `POST /api/assets`, qui
+ * lui renvoie `existing_id`. On ne peut donc que SAUTER l'envoi, pas retrouver
+ * l'id de la fiche déjà présente par ce chemin.
+ *
+ * Retourne `false` (pas de doublon connu) en cas de panne Studio — un faux
+ * négatif ici fait juste retomber sur le dépôt normal, qui dédoublonne lui
+ * aussi par hachage (comportement inchangé) ; ce n'est jamais bloquant.
+ */
+async function isKnownDuplicate(contentHash: string): Promise<boolean> {
+  try {
+    const res = await studioFetch(
+      "/api/assets/check-duplicates",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ hashes: [contentHash] }),
+      },
+      CHECK_DUPLICATE_TIMEOUT_MS
+    );
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => null);
+    return parseStudioDuplicateCheck(data).duplicateHashes.has(contentHash);
+  } catch (e) {
+    console.warn("[studio] check-duplicates indisponible, on tente le dépôt normal :", e instanceof Error ? e.message : e);
+    return false;
+  }
 }
 
 /**
@@ -211,6 +324,17 @@ export async function downloadStudioAsset(assetId: string): Promise<StudioAssetB
  * l'id existant — c'est un SUCCÈS, pas une erreur (même lecture que le pont du
  * hub). Retourne `null` si Studio n'est pas branché ou refuse : le dépôt dans
  * la bibliothèque est un enrichissement, jamais un bloquant pour l'utilisateur.
+ *
+ * Avant d'envoyer les octets, on vérifie par `isKnownDuplicate` si Studio a
+ * déjà ce fichier (pré-contrôle léger) — ça évite l'envoi complet (jusqu'à
+ * 15 Mo) quand on sait déjà que ce sera un doublon. Le fichier envoyé porte
+ * aussi `content_hash` (le même SHA-256) et `source_url` quand elle est
+ * connue : Studio ne les lit pas encore aujourd'hui (son dédoublonnage
+ * recalcule son propre hachage à la réception), mais ils sont prêts pour le
+ * jour où l'import de nuit (routes/bleuh-import.js, qui ne compare que les
+ * noms de fichiers qu'il a lui-même importés) voudra dédoublonner par
+ * contenu plutôt que par nom — voir le rapport joint pour le changement
+ * Studio correspondant.
  */
 export async function pushImageToStudio(input: {
   bytes: Buffer;
@@ -218,12 +342,20 @@ export async function pushImageToStudio(input: {
   mimeType: string;
   displayName?: string;
   tags?: string[];
+  /** URL publique déjà connue de cette image sur bleuh.co, si elle existe. */
+  sourceUrl?: string;
 }): Promise<string | null> {
   if (!isStudioConfigured()) {
     console.warn("[studio] STUDIO_INGEST_KEY absent — image non versée à la bibliothèque Studio.");
     return null;
   }
+  const contentHash = crypto.createHash("sha256").update(input.bytes).digest("hex");
   try {
+    if (await isKnownDuplicate(contentHash)) {
+      console.log(`[studio] image déjà connue (hash ${contentHash.slice(0, 12)}…) — dépôt sauté.`);
+      return null;
+    }
+
     const form = new FormData();
     form.append(
       "file",
@@ -235,6 +367,10 @@ export async function pushImageToStudio(input: {
     if (input.displayName) form.append("display_name", input.displayName.slice(0, 200));
     const tags = ["produit", "site bleuh", ...(input.tags ?? [])];
     form.append("tags", tags.join(","));
+    // Ignorés par Studio aujourd'hui (champs non lus par handleAssetUpload) —
+    // posés pour le dédoublonnage par contenu de l'import de nuit, cf. docstring.
+    form.append("content_hash", contentHash);
+    if (input.sourceUrl) form.append("source_url", input.sourceUrl);
 
     // Pas de Content-Type manuel : FormData pose lui-même la frontière multipart.
     const res = await studioFetch("/api/assets", { method: "POST", body: form }, UPLOAD_TIMEOUT_MS);
