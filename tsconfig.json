@@ -6,9 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    // `npm test` passe les .test.ts à `node --test`, qui exige l'extension
-    // explicite dans les imports ESM (voir site-bleuh/tsconfig.json, même
-    // besoin). Sans effet sur le build (noEmit).
+    // Les premiers tests du dépôt importent avec l'extension `.ts` (écrits
+    // pour `node --test`, passés sous vitest au lot L9). Sans effet sur le
+    // build (noEmit).
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",

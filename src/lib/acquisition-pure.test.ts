@@ -1,13 +1,12 @@
 /**
  * Tests de lib/acquisition-pure — volet « Frictions sur le site ».
  *
- * Premier fichier de test du dépôt : lancé par `npm test` (`node --test`,
- * voir package.json), même convention que site-bleuh. Le module testé n'a
- * aucun import, ce qui permet un import relatif direct, sans résolveur
- * d'alias `@/` (node --test ne connaît pas les `paths` de tsconfig).
+ * Lancé par `npm test` (vitest depuis le lot L9 ; d'abord `node --test`).
+ * Les modules serveur se testent sous test/, avec l'alias `@/` et la doublure
+ * de `server-only` de vitest.config.ts.
  */
 
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 
 import {

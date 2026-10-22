@@ -4,6 +4,20 @@
 #
 # Les substitutions par défaut = PROD (antigravity). Le trigger Cloud Build
 # créé par le générateur les surcharge par environnement (dev/prod).
+#
+# ⚠ LES TESTS PASSENT AVANT L'IMAGE (étape « test », cible `test` du
+# Dockerfile). Un test rouge arrête le build : rien n'est poussé ni déployé.
+#
+# ⚠ L'IMAGE DÉPLOYÉE EST TAGUÉE PAR COMMIT, jamais `latest`. Le pool de workers
+# est partagé avec d'autres dépôts et les builds peuvent se vider DANS LE
+# DÉSORDRE : avec un tag `latest` mutable, le build le plus ANCIEN termine en
+# dernier, écrase `latest` et fait RECULER la production — tout en affichant
+# SUCCESS (arrivé sur `sitemdh` le 24/08). `latest` reste poussé pour le
+# confort de `docker pull`, mais il ne sert JAMAIS au déploiement.
+#
+# ⚠ Ne PAS écrire ${SHORT_SHA:-repli} : Cloud Build résout ${…} lui-même avant
+# bash et rejette le build. Laissé nu, un $SHORT_SHA absent échoue bruyamment,
+# ce qui est le comportement voulu.
 
 substitutions:
   _SERVICE: gestion-site-bleuh
@@ -21,6 +35,21 @@ substitutions:
   _HUB_URL: https://gandalf.chanv.com
 
 steps:
+  - id: test
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    secretEnv: ["GH_PKG_TOKEN"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        trap 'rm -f /workspace/gh_token' EXIT
+        printf '%s' "$$GH_PKG_TOKEN" > /workspace/gh_token
+        DOCKER_BUILDKIT=1 docker build \
+          --secret id=gh_token,src=/workspace/gh_token \
+          --target test .
+        rm -f /workspace/gh_token
+
   - id: build
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -41,10 +70,15 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${_FB_APP_ID} \
           --build-arg NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=${_ALLOWED_DOMAINS} \
           --build-arg NEXT_PUBLIC_HUB_URL=${_HUB_URL} \
+          -t "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:$SHORT_SHA" \
           -t "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${_TAG}" .
         rm -f /workspace/gh_token
 
-  - id: push
+  - id: push-sha
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:$SHORT_SHA"]
+
+  - id: push-latest
     name: gcr.io/cloud-builders/docker
     args: ["push", "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${_TAG}"]
 
@@ -57,7 +91,7 @@ steps:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${_TAG}
+      - --image=${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:$SHORT_SHA
       - --project=${_FB_PROJECT_ID}
       - --region=${_DEPLOY_REGION}
       - --platform=managed
@@ -67,6 +101,7 @@ steps:
       - --cpu=1
 
 images:
+  - "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:$SHORT_SHA"
   - "${_AR_HOSTNAME}/${_FB_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${_TAG}"
 
 availableSecrets:

@@ -22,6 +22,23 @@ import { ValidationError } from "./products-service";
 /** Préfixe historique des images du catalogue dans le bucket. */
 const UPLOAD_FOLDER = "site-assets/uploads";
 
+/**
+ * Les dossiers où une image peut être déposée — liste fermée : le dossier
+ * n'est jamais tiré d'une saisie. `site-assets/atterrissages` reçoit les
+ * captures jointes à une demande de page ou d'infolettre (plan « Pages
+ * d'atterrissage et infolettres », lot L9) : à part du catalogue, pour que
+ * Studio et l'import Bleuh ne les prennent jamais pour du packaging.
+ */
+export const DOSSIERS_IMAGES = [UPLOAD_FOLDER, "site-assets/atterrissages"] as const;
+export type DossierImages = (typeof DOSSIERS_IMAGES)[number];
+
+/** `<dossier>/AAAA/MM/<nom>` — le chemin d'un fichier déposé (UTC). */
+export function cheminImage(dossier: DossierImages, quand: Date, filename: string): string {
+  const year = String(quand.getUTCFullYear());
+  const month = String(quand.getUTCMonth() + 1).padStart(2, "0");
+  return `${dossier}/${year}/${month}/${filename}`;
+}
+
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 /**
@@ -36,6 +53,13 @@ export const ALLOWED_IMAGE_MIME = [
   "image/avif",
   "image/svg+xml",
 ] as const;
+
+/**
+ * Formats d'une capture jointe à une demande (POST /api/site/captures) : ceux
+ * d'une photo d'écran ou d'une maquette exportée. Pas de SVG — il peut porter
+ * du script, et une capture part telle quelle dans le signalement de Support Web.
+ */
+export const FORMATS_CAPTURE = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/png": "png",
@@ -106,22 +130,23 @@ export async function saveProductImage(input: {
   bytes: Buffer;
   filename: string;
   mimeType: string;
+  /** Défaut : le catalogue (`site-assets/uploads`). */
+  dossier?: DossierImages;
 }): Promise<StoredImage> {
   assertUploadableImage(input.mimeType, input.bytes.length);
 
   const bucket = adminBucket();
   const now = new Date();
-  const year = String(now.getUTCFullYear());
-  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const dossier = input.dossier ?? UPLOAD_FOLDER;
   const { base, ext } = splitName(sanitizeFileName(input.filename), input.mimeType);
 
   let filename = `${base}.${ext}`;
-  let filePath = `${UPLOAD_FOLDER}/${year}/${month}/${filename}`;
+  let filePath = cheminImage(dossier, now, filename);
   for (let i = 2; i <= 50; i++) {
     const [exists] = await bucket.file(filePath).exists();
     if (!exists) break;
     filename = `${base}-${i}.${ext}`;
-    filePath = `${UPLOAD_FOLDER}/${year}/${month}/${filename}`;
+    filePath = cheminImage(dossier, now, filename);
   }
 
   const file = bucket.file(filePath);

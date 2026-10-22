@@ -3,7 +3,7 @@
  * (onglet Groupes de l'Infolettre).
  */
 
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 
 import { PERSONAS, tallyPersonas } from "./infolettre-personas.ts";

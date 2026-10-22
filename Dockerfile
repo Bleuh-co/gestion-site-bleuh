@@ -10,8 +10,22 @@ RUN --mount=type=secret,id=gh_token \
     GITHUB_PACKAGES_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null)" \
     npm install --no-audit --no-fund
 
+# Les tests passent AVANT l'image : un test rouge arrête le build, donc le
+# déploiement (plan « Pages d'atterrissage et infolettres », lot L9).
+# cloudbuild.yaml lance d'abord cette cible seule (étape « test », lisible
+# dans le journal) ; le builder ci-dessous en dépend aussi, pour qu'aucune
+# image ne puisse naître d'un code rouge, même construite à la main.
+FROM node:20-alpine AS test
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm test && touch /tmp/tests-verts
+
 FROM node:20-alpine AS builder
 WORKDIR /app
+# BuildKit ne construit que les étages référencés : cette copie rend l'étage
+# « test » obligatoire avant le build.
+COPY --from=test /tmp/tests-verts /tmp/tests-verts
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
