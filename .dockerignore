@@ -4,7 +4,8 @@ node_modules
 .env*
 !.env.example
 *.md
-Dockerfile
+# Dockerfile : PAS exclu — test/cloudbuild-deploy.test.ts le relit dans l'étage
+# « test » (lot L9). L'image finale ne copie que le standalone, il n'y entre pas.
 .dockerignore
 .gitignore
 credentials.json
