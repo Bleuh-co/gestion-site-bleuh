@@ -77,6 +77,44 @@ export default async function AidePage() {
           </div>
         </section>
 
+        {/* Pages d'atterrissage */}
+        <section className="section-card">
+          <h2 className="text-lg font-bold mb-3">🗂️ Pages d&apos;atterrissage</h2>
+          <p className="mb-3">
+            Les pages de bleuh.co qu&apos;on ouvre pour un lancement ou une campagne (Bleuh Original
+            Québec, Wildberry, Nouveaux produits…). Chaque page a une <strong>fiche</strong> : la page
+            du site la lit pour savoir si elle est ouverte, à quelles dates, et dans quelle zone.
+          </p>
+          <SousTitre>Demander une page</SousTitre>
+          <p className="mb-2 text-sm">
+            « Demander une page » (rôle Gestionnaire) : le nom, les deux adresses (français et anglais),
+            la zone, les langues, à quoi sert la page, la maquette et ses captures, les produits. La
+            demande crée la fiche « En préparation » et un signalement dans Support Web, file Bleuh ;
+            le panneau de droite montre mot pour mot ce que reçoit l&apos;équipe. bleuh.co ne vend rien :
+            une page ne porte ni prix ni offre, reste derrière la barrière d&apos;âge et suit le guide de
+            marque.
+          </p>
+          <SousTitre>Les états</SousTitre>
+          <ul className="list-disc pl-6 space-y-1 text-sm">
+            <li><strong>En préparation</strong> : la demande est partie, la page n&apos;est pas encore livrée. Elle passe « Prête » toute seule quand le signalement est réglé.</li>
+            <li><strong>Prête</strong> : livrée, mais éteinte ou sans date de début.</li>
+            <li><strong>Programmée</strong> : allumée, elle s&apos;ouvrira le jour du début, à minuit heure de Montréal.</li>
+            <li><strong>En ligne</strong> : allumée, entre le début et la fin (le jour de la fin compte en entier).</li>
+            <li><strong>Terminée</strong> ou <strong>Éteinte</strong> : la page fait ce que dit « Après la fin » (page « Terminée », renvoi, ou retrait).</li>
+          </ul>
+          <SousTitre>La zone</SousTitre>
+          <p className="mb-2 text-sm">
+            Québec, Canada (hors Québec) ou les deux. Hors de sa zone, la page renvoie à l&apos;accueil
+            de bleuh.co.
+          </p>
+          <SousTitre>La discussion</SousTitre>
+          <p className="text-sm">
+            La colonne « Commentaires » et la carte « Discussion » de la fiche ouvrent, à droite dans
+            GANDALF, la discussion de la page : mentions, captures, réactions, comme une tâche. Ouverte
+            seule, l&apos;app ouvre la discussion dans un onglet GANDALF.
+          </p>
+        </section>
+
         {/* Produits */}
         <section className="section-card">
           <h2 className="text-lg font-bold mb-3">📦 Produits</h2>

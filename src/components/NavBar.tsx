@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Compass,
   ExternalLink,
+  Files,
   Leaf,
   LineChart,
   Mail,
@@ -73,6 +74,7 @@ export function NavBar() {
         icon: TrendingUp,
         items: [
           { href: "/infolettre", label: t("nav.infolettre"), icon: Mail, show: isRead },
+          { href: "/pages-atterrissage", label: t("nav.pagesAtterrissage"), icon: Files, show: isRead },
           { href: "/acquisition", label: t("nav.acquisition"), icon: Compass, show: isRead },
           { href: "/seo", label: t("nav.seo"), icon: Search, show: isRead },
           { href: "/gsc", label: t("nav.gsc"), icon: LineChart, show: isRead },

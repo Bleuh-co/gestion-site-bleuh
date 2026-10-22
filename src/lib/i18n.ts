@@ -12,6 +12,7 @@
 
 import { useCallback } from "react";
 import { useGandalf } from "@bleuh-co/gandalf-sdk-next/client";
+import { ATTERRISSAGES_MESSAGES } from "./i18n-atterrissages";
 
 export type Lang = "fr" | "en" | "es";
 
@@ -720,6 +721,9 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "ceoAnalysis.insights": "Recomendaciones",
   },
 };
+
+// Pages d'atterrissage et discussion (lot L10) : rangées dans leur propre fichier.
+for (const l of ["fr", "en", "es"] as const) Object.assign(MESSAGES[l], ATTERRISSAGES_MESSAGES[l]);
 
 /** Traduit une clé avec interpolation `{var}` optionnelle. */
 export function translate(

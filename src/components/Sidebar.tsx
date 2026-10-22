@@ -37,6 +37,7 @@ export function Sidebar() {
       { label: t("nav.produits"), icon: "📦", href: "/produits", mobileOnly: true },
       { label: t("nav.varietes"), icon: "🌿", href: "/varietes", mobileOnly: true },
       { label: t("nav.infolettre"), icon: "✉️", href: "/infolettre", mobileOnly: true },
+      { label: t("nav.pagesAtterrissage"), icon: "🗂️", href: "/pages-atterrissage", mobileOnly: true },
       { label: t("nav.outils"), icon: "🧰", href: "/outils", mobileOnly: true },
       { label: t("nav.assistant"), icon: "🤖", href: "/assistant", mobileOnly: true },
       { label: t("nav.aide"), icon: "❓", href: "/aide", mobileOnly: true },

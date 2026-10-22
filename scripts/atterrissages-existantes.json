@@ -1,0 +1,39 @@
+{
+  "_lisezmoi": "Les trois pages de bleuh.co faites avant l'espace Pages d'atterrissage (plan du 22/10/2026, lot L10), rangées en fiches « livrées », allumées, sans date de fin. Le début est le jour où chaque page est arrivée dans le code de site-bleuh (git). Les zones sont celles du plan. Posées par amorcer-atterrissages.mjs, qui ne réécrit jamais une fiche existante.",
+  "fiches": {
+    "bleuh-original-quebec": {
+      "nom": "Bleuh Original Québec",
+      "adresse": { "fr": "bleuh-original-quebec", "en": "bleuh-original-quebec" },
+      "zones": ["qc"],
+      "langues": ["fr", "en"],
+      "debut": "2026-09-30",
+      "produits": ["bleuh-original-medellin-fog-balance", "bleuh-original-northern-pine-balance"],
+      "note": "Lancement SQDC de Medellin Fog et Northern Pine (brief de Dany du 30 septembre)."
+    },
+    "bleuh-original-wildberry": {
+      "nom": "Bleuh Original Wildberry",
+      "adresse": { "fr": "bleuh-original-wildberry", "en": "bleuh-original-wildberry" },
+      "zones": ["qc", "ca"],
+      "langues": ["fr", "en"],
+      "debut": "2026-07-02",
+      "produits": ["wildberry-resine-vivante-1g", "wildberry-balanced-live-resin-510-cart"],
+      "note": "Résine vivante Wildberry, cartouche 510."
+    },
+    "new-products": {
+      "nom": "Nouveaux produits (détaillants)",
+      "adresse": { "fr": "new-products", "en": "new-products" },
+      "zones": ["ca"],
+      "langues": ["fr", "en"],
+      "debut": "2026-09-24",
+      "produits": [
+        "bleuh-original-indica-blossom-kush",
+        "original-blossom-kush-balance",
+        "original-wildberry-haze-balance",
+        "blanh-indica",
+        "blanh-sativa",
+        "pine-tar-haze-cbd"
+      ],
+      "note": "Vague OCS de l'automne 2026, pour les détaillants de l'Ontario."
+    }
+  }
+}
