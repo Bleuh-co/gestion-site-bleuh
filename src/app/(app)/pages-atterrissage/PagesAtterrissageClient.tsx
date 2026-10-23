@@ -202,7 +202,7 @@ export function PagesAtterrissageClient({ role }: { role: Role }) {
                   <th className="py-2 px-3">{t("pa.colVisibilite")}</th>
                   <th className="py-2 px-3">{t("pa.colDemande")}</th>
                   <th className="py-2 px-2">{t("pa.colCommentaires")}</th>
-                  <th className="py-2 px-3">{t("pa.colActivee")}</th>
+                  <th className="py-2 px-3 text-center">{t("pa.colActivee")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -279,8 +279,9 @@ export function PagesAtterrissageClient({ role }: { role: Role }) {
                     <td className="py-2 px-2">
                       <CelluleCommentaires etat={f.commentaires} onOuvrir={() => discuter(f)} />
                     </td>
-                    <td className="py-3 px-3">
-                      <label className="flex flex-col gap-0.5">
+                    <td className="py-3 px-3 text-center">
+                      {/* Case centrée sous l'en-tête « Activée » (ticket mXzqZkaj8D8LrMgoYsFQ). */}
+                      <label className="flex flex-col items-center gap-0.5">
                         <input
                           type="checkbox"
                           checked={f.active}
