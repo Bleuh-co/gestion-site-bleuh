@@ -89,6 +89,14 @@ h4 {
     border-color: var(--app-line-strong);
     color: var(--app-ink);
   }
+  /* Bouton de fin de ligne d'un tableau : 32 px (même classe que Marketing MDH). */
+  .btn-ligne {
+    min-height: 32px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 6px;
+  }
   .btn-ghost {
     @apply btn normal-case tracking-normal text-slate-700;
     background: transparent;
