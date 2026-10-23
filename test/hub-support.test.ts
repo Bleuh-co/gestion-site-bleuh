@@ -5,7 +5,7 @@
  * sans message clair à l'écran.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { annulerSignalement, cleExterne, envoyerSignalement, type Signalement } from "../src/lib/hub-support";
+import { annulerSignalement, cleExterne, envoyerSignalement, supprimerDiscussion, type Signalement } from "../src/lib/hub-support";
 
 const PAGE: Signalement = {
   sorte: "page",
@@ -147,5 +147,64 @@ describe("annulerSignalement", () => {
   it("aucune demande pour la clé : le 404 du hub passe tel quel", async () => {
     const r = await annulerSignalement("k", "p@chanv.com", { fetch: ok(404, { error: "Aucune demande pour cette clé" }) });
     expect(r).toEqual({ ok: false, status: 404, error: "Aucune demande pour cette clé" });
+  });
+});
+
+describe("supprimerDiscussion — CONTRAT v2 §3 (app_fils)", () => {
+  const ANCIEN = { ...process.env };
+  beforeEach(() => {
+    process.env.NOTIF_API_KEY = "cle-de-test";
+    process.env.GESTIONSITEBLEUH_APP_ID = "9oxbWs7SxVimUqLBkOhH";
+    delete process.env.GANDALF_NOTIF_KEY;
+    delete process.env.HUB_URL;
+    delete process.env.NEXT_PUBLIC_HUB_URL;
+  });
+  afterEach(() => {
+    process.env = { ...ANCIEN };
+  });
+
+  it("POST /api/fils/service/supprimer, même clé, appId Firestore de Marketing Bleuh", async () => {
+    const fetchFn = ok(200, { ok: true, supprime: true });
+    const r = await supprimerDiscussion("infolettres", "64035636", { fetch: fetchFn });
+    expect(r).toEqual({ ok: true, supprime: true, status: 200 });
+
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe("https://gandalf.chanv.com/api/fils/service/supprimer");
+    expect(init.headers["x-api-key"]).toBe("cle-de-test");
+    expect(JSON.parse(init.body)).toEqual({ appId: "9oxbWs7SxVimUqLBkOhH", espace: "infolettres", objet: "64035636" });
+  });
+
+  it("pages : espace « pages », objet = id de la fiche", async () => {
+    const fetchFn = ok(200, { ok: true, supprime: true });
+    await supprimerDiscussion("pages", "bleuh-original-quebec", { fetch: fetchFn });
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toMatchObject({ espace: "pages", objet: "bleuh-original-quebec" });
+  });
+
+  it("discussion déjà absente : ok, supprime:false — jamais une erreur", async () => {
+    const r = await supprimerDiscussion("infolettres", "x", { fetch: ok(200, { ok: true, supprime: false }) });
+    expect(r).toEqual({ ok: true, supprime: false, status: 200 });
+  });
+
+  it("401/403/400 du hub : passent tels quels, sans jamais lever", async () => {
+    await expect(supprimerDiscussion("pages", "x", { fetch: ok(401, { error: "clé invalide" }) })).resolves.toEqual({
+      ok: false,
+      status: 401,
+      error: "clé invalide",
+    });
+    await expect(supprimerDiscussion("pages", "x", { fetch: ok(403, { error: "interdit" }) })).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(supprimerDiscussion("pages", "x", { fetch: ok(400, { error: "objet invalide" }) })).resolves.toMatchObject({
+      ok: false,
+      status: 400,
+    });
+  });
+
+  it("GANDALF injoignable ou sans clé configurée : ne lève jamais", async () => {
+    const r1 = await supprimerDiscussion("pages", "x", { fetch: vi.fn().mockRejectedValue(new Error("fetch failed")) });
+    expect(r1.ok).toBe(false);
+    delete process.env.NOTIF_API_KEY;
+    const fetchFn = vi.fn();
+    const r2 = await supprimerDiscussion("pages", "x", { fetch: fetchFn });
+    expect(r2.ok).toBe(false);
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 });

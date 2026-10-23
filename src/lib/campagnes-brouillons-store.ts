@@ -5,6 +5,7 @@ import { recordAudit } from "./audit";
 import { ErreurMetier } from "./erreur-metier";
 import { lireEtatsFils } from "./fils-store";
 import { ETAT_FIL_VIDE, type EtatFil } from "./fils-pure";
+import { supprimerDiscussion } from "./hub-support";
 import { idCampagneValide, trierNonEnvoyees, type CampagneNonEnvoyee } from "./campagnes-brouillons-pure";
 
 /**
@@ -33,7 +34,8 @@ export async function supprimerBrouillon(
   client: BleuhMailerLiteClient,
   id: string,
   session: SessionContext,
-  journal: typeof recordAudit = recordAudit
+  journal: typeof recordAudit = recordAudit,
+  supprimerFil: typeof supprimerDiscussion = supprimerDiscussion
 ): Promise<void> {
   if (!idCampagneValide(id)) throw new ErreurMetier("Campagne introuvable.", 400);
   const r = await client.deleteDraftCampaign(id);
@@ -44,4 +46,12 @@ export async function supprimerBrouillon(
     );
   }
   await journal(session, "infolettre.brouillon.delete", `mailerlite:${id}`);
+  // CONTRAT v2 §3 : au mieux, APRÈS la suppression réussie — un échec est
+  // journalisé et ne défait ni ne retarde jamais la suppression du brouillon.
+  try {
+    const d = await supprimerFil("infolettres", id);
+    if (!d.ok) console.warn(`[campagnes-brouillons-store] suppression de la discussion impossible pour ${id}`, d.error);
+  } catch (e) {
+    console.warn(`[campagnes-brouillons-store] suppression de la discussion impossible pour ${id}`, e);
+  }
 }

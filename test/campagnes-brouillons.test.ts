@@ -188,15 +188,50 @@ describe("magasin", () => {
     process.env.MAILERLITE_MOCK = "true";
     const client = getBleuhClient()!;
     const journal = vi.fn(async () => {});
-    await supprimerBrouillon(client, "901", SESSION, journal);
+    const supprimerFil = vi.fn(async () => ({ ok: true, supprime: true }));
+    await supprimerBrouillon(client, "901", SESSION, journal, supprimerFil);
     expect(journal).toHaveBeenCalledWith(SESSION, "infolettre.brouillon.delete", "mailerlite:901");
 
-    const e409 = await supprimerBrouillon(client, "902", SESSION, journal).catch((e) => e);
+    const e409 = await supprimerBrouillon(client, "902", SESSION, journal, supprimerFil).catch((e) => e);
     expect(e409).toBeInstanceOf(ErreurMetier);
     expect(e409.status).toBe(409);
 
-    const e400 = await supprimerBrouillon(client, "../x", SESSION, journal).catch((e) => e);
+    const e400 = await supprimerBrouillon(client, "../x", SESSION, journal, supprimerFil).catch((e) => e);
     expect(e400.status).toBe(400);
     expect(journal).toHaveBeenCalledTimes(1);
+  });
+
+  it("CONTRAT v2 §3 : appelle supprimerDiscussion (espace « infolettres », objet = id) APRÈS la suppression réussie", async () => {
+    process.env.MAILERLITE_MOCK = "true";
+    const client = getBleuhClient()!;
+    const journal = vi.fn(async () => {});
+    const supprimerFil = vi.fn(async () => ({ ok: true, supprime: true }));
+    await supprimerBrouillon(client, "901", SESSION, journal, supprimerFil);
+    expect(supprimerFil).toHaveBeenCalledWith("infolettres", "901");
+    expect(supprimerFil).toHaveBeenCalledTimes(1);
+  });
+
+  it("CONTRAT v2 §3 : un échec (refus du hub ou exception) de supprimerDiscussion ne bloque JAMAIS la suppression du brouillon", async () => {
+    process.env.MAILERLITE_MOCK = "true";
+    const client = getBleuhClient()!;
+    const journal = vi.fn(async () => {});
+
+    const refusee = vi.fn(async () => ({ ok: false, error: "GANDALF a refusé la demande (403)." }));
+    await expect(supprimerBrouillon(client, "901", SESSION, journal, refusee)).resolves.toBeUndefined();
+
+    const enPanne = vi.fn(async () => {
+      throw new Error("GANDALF injoignable");
+    });
+    await expect(supprimerBrouillon(client, "900", SESSION, journal, enPanne)).resolves.toBeUndefined();
+  });
+
+  it("brouillon jamais supprimé (409, 400) : supprimerDiscussion n'est pas appelée", async () => {
+    process.env.MAILERLITE_MOCK = "true";
+    const client = getBleuhClient()!;
+    const journal = vi.fn(async () => {});
+    const supprimerFil = vi.fn(async () => ({ ok: true, supprime: true }));
+    await supprimerBrouillon(client, "902", SESSION, journal, supprimerFil).catch(() => {});
+    await supprimerBrouillon(client, "../x", SESSION, journal, supprimerFil).catch(() => {});
+    expect(supprimerFil).not.toHaveBeenCalled();
   });
 });

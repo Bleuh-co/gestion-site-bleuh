@@ -1,10 +1,14 @@
 import "server-only";
+import type { EspaceFil } from "./fils-pure";
 
 /**
  * Les signalements de Marketing Bleuh dans Support Web —
  * `POST /api/support/service` du hub, et son annulation
  * `POST /api/support/service/annuler` (plan « Pages d'atterrissage et
  * infolettres », 22/10/2026 : porte ouverte au lot L2, ce module au lot L9).
+ * Plus, depuis le CONTRAT v2 de la discussion GANDALF (lots L10/L12) :
+ * `POST /api/fils/service/supprimer`, pour effacer la discussion d'une page
+ * ou d'une campagne supprimée.
  *
  * Porté de `marketing-mdh/src/lib/hub-support.ts`. Deux différences :
  *   - l'intégration est `marketing_bleuh` et la cible `site-bleuh` (le hub
@@ -13,7 +17,8 @@ import "server-only";
  *     « infolettre » (objet `infolettre`), là où MDH n'envoie que des pages.
  *
  * La clé est la MÊME que celle de `/api/notifications` (`NOTIF_API_KEY`,
- * repli `GANDALF_NOTIF_KEY`) — aucune variable d'environnement de plus.
+ * repli `GANDALF_NOTIF_KEY`) — aucune variable d'environnement de plus que
+ * `GESTIONSITEBLEUH_APP_ID` (déjà lue par fils-store.ts, même source).
  *
  * IDEMPOTENT : `external_key` rend un rejeu sans danger (le hub répond
  * `created:false` avec le MÊME id). On peut renvoyer une demande déjà partie
@@ -168,4 +173,42 @@ export async function annulerSignalement(
   );
   if (!r.ok) return r;
   return { ok: true, id: typeof r.j.id === "string" ? r.j.id : undefined, annule: r.j.annule === true, status: r.status };
+}
+
+/** L'ID Firestore de Marketing Bleuh dans `apps` — même source que fils-store.ts (`GESTIONSITEBLEUH_APP_ID`), sans l'importer. */
+function appIdFirestore(): string {
+  return (process.env.GESTIONSITEBLEUH_APP_ID || "").trim();
+}
+
+export interface SuppressionDiscussionResult {
+  ok: boolean;
+  /** `false` quand la discussion n'existait déjà plus (rien à effacer). */
+  supprime?: boolean;
+  status?: number;
+  error?: string;
+}
+
+/**
+ * Efface la discussion GANDALF (`app_fils`) d'une page ou d'une campagne
+ * supprimée (CONTRAT v2 §3) — `POST /api/fils/service/supprimer`, MÊME clé
+ * que les signalements.
+ *
+ * TOUJOURS appelée APRÈS une suppression déjà réussie (brouillon MailerLite,
+ * fiche de page) : BEST-EFFORT, ne lève JAMAIS, et un refus ou une panne du
+ * hub ne doit jamais défaire ni retarder la suppression déjà faite — chaque
+ * appelant journalise `error` et continue.
+ */
+export async function supprimerDiscussion(
+  espace: EspaceFil,
+  objet: string,
+  deps: HubSupportDeps = {}
+): Promise<SuppressionDiscussionResult> {
+  const r = await poster(
+    "/api/fils/service/supprimer",
+    { appId: appIdFirestore(), espace, objet },
+    "suppression de discussion",
+    deps
+  );
+  if (!r.ok) return r;
+  return { ok: true, supprime: r.j.supprime === true, status: r.status };
 }
