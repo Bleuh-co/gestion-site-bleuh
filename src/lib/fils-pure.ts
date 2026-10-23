@@ -14,9 +14,18 @@
  *   • `etatPourMoi` : { compte, nouveau } pour la personne connectée.
  *
  * Le reste est le protocole de la coquille (hub-chanv public/js/shell.js) :
- *   app → coquille  {type:'gandalf:fil', espace, objet, titre, resume, chemin, marque}
- *   coquille → app  {type:'gandalf:fil-maj', espace, objet, filId, compte, nouveau:false}
+ *   app → coquille  {type:'gandalf:fil', espace, objet, titre, resume, chemin, marque, ajustable?}
+ *   coquille → app  {type:'gandalf:fil-maj', espace, objet, filId, compte, nouveau:false, ouvert?}
+ *   coquille → app  {type:'gandalf:fil-ferme', espace, objet, filId}
  * L'appId n'est jamais dans le message : la coquille le tire de l'iframe.
+ *
+ * CONTRAT v2 (plan « Pages d'atterrissage et infolettres », 22/10/2026) :
+ *   §1 `ajustable` — pages seulement (une campagne MailerLite n'a pas de
+ *      circuit d'équipe) : vrai quand la fiche n'est pas « En préparation ».
+ *      Absent du message si non défini — jamais envoyé à `false` implicite.
+ *   §2 la rangée active — `ouvert:true` sur `gandalf:fil-maj` confirme que le
+ *      volet est ouvert sur cet objet ; `gandalf:fil-ferme` l'efface. Voir
+ *      `useFilActif` (fils-client.ts).
  */
 
 export const ESPACES_FIL = ["pages", "infolettres"] as const;
@@ -95,11 +104,17 @@ export interface OuvertureFil {
   resume?: ResumeFil;
   /** Où rouvrir l'app depuis une mention (chemin de l'app, commence par « / »). */
   chemin: string;
+  /**
+   * CONTRAT v2 §1 : la fiche n'est pas « En préparation » (aucune demande en
+   * cours). Pages seulement — une campagne MailerLite ne doit JAMAIS porter
+   * ce champ (pas de circuit d'équipe pour elles) : laisser `undefined`.
+   */
+  ajustable?: boolean;
 }
 
-/** Le message `gandalf:fil` que la coquille attend. */
+/** Le message `gandalf:fil` que la coquille attend. `ajustable` n'y entre que s'il est défini (CONTRAT v2 §1). */
 export function messageOuvertureFil(o: OuvertureFil): Record<string, unknown> {
-  return {
+  const message: Record<string, unknown> = {
     type: "gandalf:fil",
     espace: o.espace,
     objet: o.objet,
@@ -108,6 +123,8 @@ export function messageOuvertureFil(o: OuvertureFil): Record<string, unknown> {
     chemin: o.chemin,
     marque: "bleuh",
   };
+  if (o.ajustable !== undefined) message.ajustable = o.ajustable;
+  return message;
 }
 
 /** L'adresse GANDALF qui ouvre la discussion hors de la coquille (l'app ouverte seule, dans un onglet). */
@@ -118,12 +135,26 @@ export function lienDiscussionHorsCoquille(hubUrl: string, filId: string): strin
 /**
  * Un message reçu de la coquille → la mise à jour d'une cellule, ou `null`.
  * `filId` sert de clé : il porte l'appId, que l'app ne peut pas confondre.
+ * `ouvert` (CONTRAT v2 §2) : vrai quand le volet est ouvert sur CET objet —
+ * c'est la confirmation qui fait de cette rangée la rangée active.
  */
-export function lireMajFil(data: unknown): { filId: string; espace: string; objet: string; compte: number } | null {
+export function lireMajFil(data: unknown): { filId: string; espace: string; objet: string; compte: number; ouvert: boolean } | null {
   if (!data || typeof data !== "object") return null;
   const d = data as Record<string, unknown>;
   if (d.type !== "gandalf:fil-maj") return null;
   const compte = typeof d.compte === "number" && Number.isFinite(d.compte) && d.compte >= 0 ? Math.floor(d.compte) : null;
   if (compte === null || typeof d.filId !== "string" || !d.filId) return null;
-  return { filId: d.filId, espace: String(d.espace ?? ""), objet: String(d.objet ?? ""), compte };
+  return { filId: d.filId, espace: String(d.espace ?? ""), objet: String(d.objet ?? ""), compte, ouvert: d.ouvert === true };
+}
+
+/**
+ * `gandalf:fil-ferme` (CONTRAT v2 §2) : le volet vient de se fermer sur cet
+ * objet — efface la rangée active si c'est elle qui l'était.
+ */
+export function lireFermetureFil(data: unknown): { filId: string; espace: string; objet: string } | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  if (d.type !== "gandalf:fil-ferme") return null;
+  if (typeof d.filId !== "string" || !d.filId) return null;
+  return { filId: d.filId, espace: String(d.espace ?? ""), objet: String(d.objet ?? "") };
 }

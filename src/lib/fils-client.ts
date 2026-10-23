@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { lienDiscussionHorsCoquille, lireMajFil, messageOuvertureFil, type OuvertureFil } from "./fils-pure";
+import { useEffect, useRef, useState } from "react";
+import { lienDiscussionHorsCoquille, lireFermetureFil, lireMajFil, messageOuvertureFil, type OuvertureFil } from "./fils-pure";
 
 /**
  * Ouvrir la discussion d'une page ou d'une infolettre (voir fils-pure.ts).
@@ -45,4 +45,30 @@ export function useMajFil(surMaj: (filId: string, compte: number) => void): void
     window.addEventListener("message", ecoute);
     return () => window.removeEventListener("message", ecoute);
   }, []);
+}
+
+/**
+ * La rangée active d'une liste (CONTRAT v2 §2) : `marquer(filId)` au clic
+ * (pose la rangée active tout de suite, avant toute confirmation) ; la
+ * coquille confirme par `gandalf:fil-maj` avec `ouvert:true`, ou efface par
+ * `gandalf:fil-ferme`. Une seule valeur : une seule rangée à la fois, même
+ * quand plusieurs tableaux (brouillons, envoyées) partagent le même état.
+ */
+export function useFilActif(): { filActif: string | null; marquer: (filId: string) => void } {
+  const [filActif, setFilActif] = useState<string | null>(null);
+  useEffect(() => {
+    const ecoute = (ev: MessageEvent) => {
+      if (ev.source !== window.parent || window.parent === window) return;
+      const maj = lireMajFil(ev.data);
+      if (maj) {
+        if (maj.ouvert) setFilActif(maj.filId);
+        return;
+      }
+      const fermeture = lireFermetureFil(ev.data);
+      if (fermeture) setFilActif((cur) => (cur === fermeture.filId ? null : cur));
+    };
+    window.addEventListener("message", ecoute);
+    return () => window.removeEventListener("message", ecoute);
+  }, []);
+  return { filActif, marquer: setFilActif };
 }

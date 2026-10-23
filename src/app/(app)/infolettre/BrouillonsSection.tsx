@@ -48,7 +48,15 @@ export function discuterCampagne(
   );
 }
 
-export function BrouillonsSection({ canWrite, campagneCiblee }: { canWrite: boolean; campagneCiblee?: string | null }) {
+interface BrouillonsSectionProps {
+  canWrite: boolean;
+  campagneCiblee?: string | null;
+  /** La rangée active (CONTRAT v2 §2), partagée avec le tableau des campagnes envoyées (CampaignsPanel). */
+  filActif?: string | null;
+  marquerFilActif?: (filId: string) => void;
+}
+
+export function BrouillonsSection({ canWrite, campagneCiblee, filActif = null, marquerFilActif = () => {} }: BrouillonsSectionProps) {
   const [lignes, setLignes] = useState<Ligne[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
@@ -145,7 +153,9 @@ export function BrouillonsSection({ canWrite, campagneCiblee }: { canWrite: bool
                   <tr
                     key={l.id}
                     id={`campagne-${l.id}`}
-                    className={`border-b border-black/5 last:border-0 align-top ${campagneCiblee === l.id ? "bg-amber-50" : ""}`}
+                    className={`border-b border-black/5 last:border-0 align-top ${
+                      campagneCiblee === l.id || (!!l.commentaires.filId && filActif === l.commentaires.filId) ? "bg-amber-50" : ""
+                    }`}
                   >
                     <td className="px-4 py-3">
                       <div className="font-medium [overflow-wrap:anywhere]">{l.name || "—"}</div>
@@ -167,7 +177,7 @@ export function BrouillonsSection({ canWrite, campagneCiblee }: { canWrite: bool
                     <td className="px-2 py-3">
                       <CelluleCommentaires
                         etat={l.commentaires}
-                        onOuvrir={() =>
+                        onOuvrir={() => {
                           discuterCampagne(
                             l,
                             programmee ? "Programmée" : "Brouillon",
@@ -175,8 +185,9 @@ export function BrouillonsSection({ canWrite, campagneCiblee }: { canWrite: bool
                               ? { libelle: "Envoi prévu", valeur: fmtDateHeure(l.dateSend) }
                               : { libelle: "Créée le", valeur: fmtDateHeure(l.dateCreated) },
                             l.commentaires.filId
-                          )
-                        }
+                          );
+                          marquerFilActif(l.commentaires.filId);
+                        }}
                       />
                     </td>
                     <td className="px-3 py-3">

@@ -16,6 +16,8 @@ export interface PagePourDiscussion {
   nom: string;
   adresse: Bilingual;
   visibilite: Visibilite;
+  /** CONTRAT v2 §1 : la fiche n'est pas « En préparation » (aucune demande en cours) — voir `pageAjustable` (atterrissages-pure.ts). */
+  ajustable: boolean;
 }
 
 export interface LibellesDiscussionPage {
@@ -38,6 +40,7 @@ export function ouvertureFilPage(p: PagePourDiscussion, l: LibellesDiscussionPag
     objet: p.id,
     titre: p.nom,
     chemin,
+    ajustable: p.ajustable,
     resume: {
       contexte: `${l.contexte} · bleuh.co/fr/${p.adresse.fr}/`,
       etat: l.etat,

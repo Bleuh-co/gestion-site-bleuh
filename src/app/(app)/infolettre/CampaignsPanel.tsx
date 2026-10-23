@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Campaign, CampaignsResponse } from "@/lib/infolettre-types";
 import { summarizeCampaigns, type DayRange } from "@/lib/infolettre-campaigns-summary";
 import { CelluleCommentaires } from "@/components/CelluleCommentaires";
-import { useMajFil } from "@/lib/fils-client";
+import { useFilActif, useMajFil } from "@/lib/fils-client";
 import { ETAT_FIL_VIDE } from "@/lib/fils-pure";
 import { BrouillonsSection, discuterCampagne } from "./BrouillonsSection";
 
@@ -76,6 +76,8 @@ export function CampaignsPanel({ canWrite = false, campagneCiblee = null }: { ca
   const [period, setPeriod] = useState<PeriodKey>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  // Partagée avec BrouillonsSection : une seule rangée active à la fois sur toute la page Infolettre (CONTRAT v2 §2).
+  const { filActif, marquer: marquerFilActif } = useFilActif();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -158,7 +160,7 @@ export function CampaignsPanel({ canWrite = false, campagneCiblee = null }: { ca
 
   return (
     <div>
-      <BrouillonsSection canWrite={canWrite} campagneCiblee={campagneCiblee} />
+      <BrouillonsSection canWrite={canWrite} campagneCiblee={campagneCiblee} filActif={filActif} marquerFilActif={marquerFilActif} />
 
       <h2 className="text-lg font-bold mb-2">Envoyées</h2>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -264,44 +266,46 @@ export function CampaignsPanel({ canWrite = false, campagneCiblee = null }: { ca
                 </td>
               </tr>
             ) : (
-              sorted.map((c) => (
-                <tr
-                  key={c.id}
-                  id={`campagne-${c.id}`}
-                  className={`border-b border-black/5 last:border-0 align-top ${campagneCiblee === c.id ? "bg-amber-50" : ""}`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{c.name || "—"}</div>
-                    <div className="text-xs text-chanv-terre/50">
-                      {c.subject}
-                      {TYPE_LABEL[c.type] ? (
-                        <span className="badge-neutral text-[10px] ml-2">{TYPE_LABEL[c.type]}</span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-chanv-terre/60">
-                    {fmtDate(c.dateSend)}
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">{fmtInt(c.recipients)}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">{fmtPct(c.openRate)}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
-                    {fmtPct(c.clickRate)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {(() => {
-                      const etat = data?.commentaires?.[c.id] ?? ETAT_FIL_VIDE;
-                      return (
-                        <CelluleCommentaires
-                          etat={etat}
-                          onOuvrir={() =>
-                            discuterCampagne(c, "Envoyée", { libelle: "Envoyée le", valeur: fmtDate(c.dateSend) }, etat.filId)
-                          }
-                        />
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))
+              sorted.map((c) => {
+                const etat = data?.commentaires?.[c.id] ?? ETAT_FIL_VIDE;
+                const actif = !!etat.filId && filActif === etat.filId;
+                return (
+                  <tr
+                    key={c.id}
+                    id={`campagne-${c.id}`}
+                    className={`border-b border-black/5 last:border-0 align-top ${
+                      campagneCiblee === c.id || actif ? "bg-amber-50" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{c.name || "—"}</div>
+                      <div className="text-xs text-chanv-terre/50">
+                        {c.subject}
+                        {TYPE_LABEL[c.type] ? (
+                          <span className="badge-neutral text-[10px] ml-2">{TYPE_LABEL[c.type]}</span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-chanv-terre/60">
+                      {fmtDate(c.dateSend)}
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{fmtInt(c.recipients)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">{fmtPct(c.openRate)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
+                      {fmtPct(c.clickRate)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <CelluleCommentaires
+                        etat={etat}
+                        onOuvrir={() => {
+                          discuterCampagne(c, "Envoyée", { libelle: "Envoyée le", valeur: fmtDate(c.dateSend) }, etat.filId);
+                          marquerFilActif(etat.filId);
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

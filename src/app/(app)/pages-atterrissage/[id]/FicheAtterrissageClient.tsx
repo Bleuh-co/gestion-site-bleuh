@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { ExternalLink, MessageSquare, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dateLongue, phrasesDeLaPage, type ApresFin, type Visibilite, type Zone } from "@/lib/atterrissages-pure";
+import { dateLongue, pageAjustable, phrasesDeLaPage, type ApresFin, type Visibilite, type Zone } from "@/lib/atterrissages-pure";
 import type { FicheAffichee } from "@/lib/atterrissages-store";
 import type { Role } from "@/lib/types";
 import { ouvrirDiscussion, useMajFil } from "@/lib/fils-client";
@@ -147,14 +147,17 @@ export function FicheAtterrissageClient({ id, role }: { id: string; role: Role }
   const discuter = () => {
     const jour = (j: string | null) => (j ? dateLongue(j, locale) : "");
     ouvrirDiscussion(
-      ouvertureFilPage(fiche, {
-        contexte: t("fil.contextePage"),
-        etat: libelleEtat,
-        dates: { libelle: t("pa.colDates"), valeur: [jour(fiche.debut), jour(fiche.fin)].filter(Boolean).join(" → ") },
-        zone: { libelle: t("pa.colZone"), valeur: zone(fiche.zones) },
-        visibilite: { libelle: t("pa.colVisibilite"), valeur: fiche.visibilite === "privee" ? t("pa.privee") : t("pa.publique") },
-        fiche: t("fil.ouvrirFiche"),
-      }),
+      ouvertureFilPage(
+        { ...fiche, ajustable: pageAjustable(fiche.etat) },
+        {
+          contexte: t("fil.contextePage"),
+          etat: libelleEtat,
+          dates: { libelle: t("pa.colDates"), valeur: [jour(fiche.debut), jour(fiche.fin)].filter(Boolean).join(" → ") },
+          zone: { libelle: t("pa.colZone"), valeur: zone(fiche.zones) },
+          visibilite: { libelle: t("pa.colVisibilite"), valeur: fiche.visibilite === "privee" ? t("pa.privee") : t("pa.publique") },
+          fiche: t("fil.ouvrirFiche"),
+        }
+      ),
       fiche.commentaires.filId
     );
     setFiche({ ...fiche, commentaires: { ...fiche.commentaires, nouveau: false } });

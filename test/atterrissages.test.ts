@@ -16,13 +16,17 @@ import {
   jourValide,
   lireFiche,
   ouverteDansLaZone,
+  pageAjustable,
   phrasesDeLaPage,
   remplir,
   validerPatchAtterrissage,
   valeursDesPhrases,
   zonesValides,
+  type EtatPage,
   type FicheAtterrissage,
 } from "../src/lib/atterrissages-pure";
+import { ouvertureFilPage } from "../src/lib/atterrissage-discussion-pure";
+import { messageOuvertureFil } from "../src/lib/fils-pure";
 
 const a = (iso: string) => Date.parse(iso);
 const midi = (jour: string) => a(`${jour}T12:00:00-04:00`);
@@ -149,6 +153,11 @@ describe("etatDeLaPage — les six états, à l'heure de Montréal", () => {
     expect(etatDeLaPage({ ...PAGE, active: false }, midi("2026-11-10"), true)).toBe("eteinte");
   });
 
+  it("pageAjustable (CONTRAT v2 §1) : jamais en préparation, toujours dans les cinq autres états", () => {
+    const ETATS: EtatPage[] = ["preparation", "prete", "programmee", "en-ligne", "terminee", "eteinte"];
+    expect(ETATS.map(pageAjustable)).toEqual([false, true, true, true, true, true]);
+  });
+
   it("l'aperçu l'ouvre en avance hors production, jamais sur bleuh.co", () => {
     expect(etatDeLaPage(PAGE, midi("2026-11-03"), false)).toBe("en-ligne");
     expect(etatDeLaPage(PAGE, midi("2026-11-03"), true)).toBe("programmee");
@@ -243,5 +252,29 @@ describe("les trois pages faites avant l'espace (scripts/atterrissages-existante
     expect(fiches["bleuh-original-quebec"].zones).toEqual(["qc"]);
     expect(fiches["bleuh-original-wildberry"].zones).toEqual(["qc", "ca"]);
     expect(fiches["new-products"].zones).toEqual(["ca"]);
+  });
+});
+
+describe("ouvertureFilPage — CONTRAT v2 §1, ajustable TOUJOURS envoyé pour une page", () => {
+  const LIBELLES = {
+    contexte: "Page d'atterrissage Bleuh",
+    etat: "En ligne",
+    dates: { libelle: "Dates", valeur: "" },
+    zone: { libelle: "Zone", valeur: "Québec" },
+    visibilite: { libelle: "Visibilité", valeur: "Publique" },
+    fiche: "Ouvrir la fiche",
+  };
+
+  it("une page ajustable : le message `gandalf:fil` porte `ajustable:true`", () => {
+    const o = ouvertureFilPage({ ...PAGE, ajustable: true }, LIBELLES);
+    expect(o.ajustable).toBe(true);
+    expect(messageOuvertureFil(o)).toMatchObject({ ajustable: true });
+  });
+
+  it("une page « en préparation » : `ajustable:false` — jamais omis, contrairement à une campagne", () => {
+    const o = ouvertureFilPage({ ...PAGE, ajustable: false }, LIBELLES);
+    expect(o.ajustable).toBe(false);
+    expect(messageOuvertureFil(o)).toMatchObject({ ajustable: false });
+    expect(messageOuvertureFil(o)).toHaveProperty("ajustable");
   });
 });

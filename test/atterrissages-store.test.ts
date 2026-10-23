@@ -50,9 +50,15 @@ describe("la discussion d'une page Bleuh", () => {
     expect(m).not.toHaveProperty("appId");
   });
 
-  it("le résumé du volet : bleuh.co/fr, la zone, pas d'offre", () => {
+  it("le résumé du volet : bleuh.co/fr, la zone, pas d'offre ; ajustable (CONTRAT v2 §1) transporté tel quel", () => {
     const o = ouvertureFilPage(
-      { id: "bleuh-original-quebec", nom: "Bleuh Original Québec", adresse: { fr: "bleuh-original-quebec", en: "bleuh-original-quebec" }, visibilite: "publique" },
+      {
+        id: "bleuh-original-quebec",
+        nom: "Bleuh Original Québec",
+        adresse: { fr: "bleuh-original-quebec", en: "bleuh-original-quebec" },
+        visibilite: "publique",
+        ajustable: true,
+      },
       {
         contexte: "Page d'atterrissage Bleuh",
         etat: "En ligne",
@@ -72,6 +78,7 @@ describe("la discussion d'une page Bleuh", () => {
       ],
       liens: [{ libelle: "Ouvrir la fiche", chemin: "/pages-atterrissage/bleuh-original-quebec" }],
     });
+    expect(o.ajustable).toBe(true);
     expect(cheminFichePage("a b")).toBe("/pages-atterrissage/a%20b");
   });
 

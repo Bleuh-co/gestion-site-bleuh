@@ -6,11 +6,11 @@ import { toast } from "sonner";
 import { Lock, Plus } from "lucide-react";
 import { LANG_LOCALES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { EtatPage } from "@/lib/atterrissages-pure";
+import { pageAjustable, type EtatPage } from "@/lib/atterrissages-pure";
 import type { FicheAffichee } from "@/lib/atterrissages-store";
 import type { Role } from "@/lib/types";
 import { CelluleCommentaires } from "@/components/CelluleCommentaires";
-import { ouvrirDiscussion, useMajFil } from "@/lib/fils-client";
+import { ouvrirDiscussion, useFilActif, useMajFil } from "@/lib/fils-client";
 import { ouvertureFilPage } from "@/lib/atterrissage-discussion-pure";
 import { apiSite, ETAT_CLS, useLibellesPage } from "@/lib/atterrissages-client";
 
@@ -48,6 +48,7 @@ export function PagesAtterrissageClient({ role }: { role: Role }) {
   const [chargement, setChargement] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("toutes");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { filActif, marquer: marquerFilActif } = useFilActif();
 
   const charger = useCallback(async () => {
     try {
@@ -98,16 +99,20 @@ export function PagesAtterrissageClient({ role }: { role: Role }) {
 
   const discuter = (f: FicheAffichee) => {
     ouvrirDiscussion(
-      ouvertureFilPage(f, {
-        contexte: t("fil.contextePage"),
-        etat: etat(f),
-        dates: { libelle: t("pa.colDates"), valeur: datesCourtes(f) },
-        zone: { libelle: t("pa.colZone"), valeur: zone(f.zones) },
-        visibilite: { libelle: t("pa.colVisibilite"), valeur: f.visibilite === "privee" ? t("pa.privee") : t("pa.publique") },
-        fiche: t("fil.ouvrirFiche"),
-      }),
+      ouvertureFilPage(
+        { ...f, ajustable: pageAjustable(f.etat) },
+        {
+          contexte: t("fil.contextePage"),
+          etat: etat(f),
+          dates: { libelle: t("pa.colDates"), valeur: datesCourtes(f) },
+          zone: { libelle: t("pa.colZone"), valeur: zone(f.zones) },
+          visibilite: { libelle: t("pa.colVisibilite"), valeur: f.visibilite === "privee" ? t("pa.privee") : t("pa.publique") },
+          fiche: t("fil.ouvrirFiche"),
+        }
+      ),
       f.commentaires.filId
     );
+    marquerFilActif(f.commentaires.filId);
     // Le volet marque la discussion comme lue : la pastille s'éteint tout de suite.
     setItems((prev) => prev.map((x) => (x.id === f.id ? { ...x, commentaires: { ...x.commentaires, nouveau: false } } : x)));
   };
@@ -201,7 +206,13 @@ export function PagesAtterrissageClient({ role }: { role: Role }) {
               </thead>
               <tbody>
                 {visibles.map((f) => (
-                  <tr key={f.id} className="border-t border-chanv-fibre/60 align-top hover:bg-chanv-fibre/20">
+                  <tr
+                    key={f.id}
+                    className={cn(
+                      "border-t border-chanv-fibre/60 align-top hover:bg-chanv-fibre/20",
+                      !!f.commentaires.filId && filActif === f.commentaires.filId && "bg-amber-50"
+                    )}
+                  >
                     <td className="py-3 px-4">
                       <Link href={`/pages-atterrissage/${f.id}`} className="font-medium hover:underline">
                         {f.nom}

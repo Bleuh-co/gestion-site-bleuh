@@ -313,6 +313,15 @@ export function etatDeLaPage(fiche: FicheAtterrissage, maintenantMs: number, pro
 }
 
 /**
+ * CONTRAT v2 §1 de la discussion GANDALF (`app_fils`) : une page est
+ * « ajustable » dès qu'elle n'est pas « En préparation » — autrement dit,
+ * aucune demande n'est en cours (le seul état où `!fiche.livree`).
+ */
+export function pageAjustable(etat: EtatPage): boolean {
+  return etat !== "preparation";
+}
+
+/**
  * Où renvoie une page finie, dans la langue de la page : le chemin de la
  * fiche, préfixé de la langue (`/fr/produits`, `/en/produits`) — bleuh.co
  * préfixe toutes ses adresses. `null` sans renvoi.
