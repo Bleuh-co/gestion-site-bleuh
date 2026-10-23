@@ -63,6 +63,8 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.error": "Impossible de charger l'acquisition.",
     "acq.vitrineNote":
       "bleuh.co est un site vitrine : il n'y a aucune vente à mesurer ici. Le clic vers un détaillant (SQDC/OCS) est l'aboutissement le plus proche dont nous disposons — nous savons que la personne est partie chez le détaillant, pas si elle a acheté.",
+    "acq.mesureElargie":
+      "Depuis le 23 octobre 2026, toutes les visites sont comptées, sans attendre le bandeau des témoins ; avant, seulement celles qui l'avaient accepté. Le saut à cette date vient de la mesure, pas d'une hausse du trafic.",
     "acq.trafficPending.title": "Les visites ne sont pas encore mesurées sur cette période.",
     "acq.trafficPending.body":
       "La provenance des visites et le temps passé viennent d'être ajoutés à la mesure du site : seules les visites postérieures sont comptées. Les compteurs globaux plus anciens restent visibles dans Analyse CEO.",
@@ -103,7 +105,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.payant": "Publicité payante",
     "acq.channel.reference": "Sites référents",
     "acq.channel.autre": "Autre",
-    "acq.footnote": "Jours en UTC · mesure premier-partie, sous réserve du consentement aux témoins",
+    "acq.footnote": "Jours en UTC · mesure premier-partie anonyme",
     "acq.generatedAt": "Calculé le",
     "acq.frictions.title": "Frictions sur le site",
     "acq.frictions.help":
@@ -304,6 +306,8 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.error": "Could not load acquisition data.",
     "acq.vitrineNote":
       "bleuh.co is a showcase site: there are no sales to measure here. A click through to a retailer (SQDC/OCS) is the closest outcome we have — we know the person left for the retailer, not whether they bought.",
+    "acq.mesureElargie":
+      "Since October 23, 2026, every visit is counted without waiting for the cookie banner; before, only visits that had accepted it. The jump on that date comes from the measurement, not from more traffic.",
     "acq.trafficPending.title": "Visits are not measured yet for this period.",
     "acq.trafficPending.body":
       "Visit origin and time spent were just added to the site's measurement: only later visits are counted. Older global counters remain visible in CEO Analysis.",
@@ -344,7 +348,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.payant": "Paid advertising",
     "acq.channel.reference": "Referring sites",
     "acq.channel.autre": "Other",
-    "acq.footnote": "Days in UTC · first-party measurement, subject to cookie consent",
+    "acq.footnote": "Days in UTC · anonymous first-party measurement",
     "acq.generatedAt": "Computed on",
     "acq.frictions.title": "Friction on the site",
     "acq.frictions.help":
@@ -531,6 +535,8 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.error": "No se pudo cargar la adquisición.",
     "acq.vitrineNote":
       "bleuh.co es un sitio escaparate: aquí no hay ventas que medir. El clic hacia un distribuidor (SQDC/OCS) es el resultado más cercano del que disponemos — sabemos que la persona se fue al distribuidor, no si compró.",
+    "acq.mesureElargie":
+      "Desde el 23 de octubre de 2026 se cuentan todas las visitas, sin esperar el aviso de cookies; antes, solo las que lo habían aceptado. El salto en esa fecha viene de la medición, no de más tráfico.",
     "acq.trafficPending.title": "Las visitas aún no se miden en este período.",
     "acq.trafficPending.body":
       "El origen de las visitas y el tiempo en página acaban de añadirse a la medición del sitio: solo se cuentan las visitas posteriores. Los contadores globales anteriores siguen visibles en Análisis CEO.",
@@ -571,7 +577,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.channel.payant": "Publicidad pagada",
     "acq.channel.reference": "Sitios de referencia",
     "acq.channel.autre": "Otro",
-    "acq.footnote": "Días en UTC · medición propia, sujeta al consentimiento de cookies",
+    "acq.footnote": "Días en UTC · medición propia anónima",
     "acq.generatedAt": "Calculado el",
     "acq.frictions.title": "Fricciones en el sitio",
     "acq.frictions.help":

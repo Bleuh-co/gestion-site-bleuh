@@ -25,6 +25,9 @@ import { CartesClics, type CarteOuverte } from "./CartesClics";
 /** Teinte de marque (brand-600). Contraste vérifié ≥ 3:1 sur la carte. */
 const OR = "#8A7648";
 
+/** Premier jour (UTC) où bleuh.co compte toutes les visites, bandeau accepté ou non. */
+const MESURE_ELARGIE_LE = "2026-10-23";
+
 const PERIODS = [7, 30, 90] as const;
 type Period = (typeof PERIODS)[number];
 
@@ -190,6 +193,15 @@ export function AcquisitionClient() {
           {/* Le clic sortant n'est pas une vente : le dire une fois, en clair,
               plutôt que d'espérer que l'intitulé des colonnes suffise. */}
           <div className="card p-3 mb-4 text-xs text-chanv-terre/70">{t("acq.vitrineNote")}</div>
+
+          {/* Le 23/10/2026, la mesure a cessé d'attendre le bandeau : les
+              courbes sautent ce jour-là. Dit tant que la période montre des
+              jours d'avant, pour que personne n'y lise une hausse du trafic. */}
+          {!data.trafficPending && data.series.length > 0 && data.series[0].date < MESURE_ELARGIE_LE && (
+            <div className="card p-3 mb-4 text-xs border-2 border-chanv-beige bg-chanv-fibre">
+              {t("acq.mesureElargie")}
+            </div>
+          )}
 
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <KpiCard
