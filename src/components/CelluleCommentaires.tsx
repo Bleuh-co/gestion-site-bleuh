@@ -25,7 +25,7 @@ export function CelluleCommentaires({ etat, onOuvrir }: { etat: EtatFil; onOuvri
       )}
     >
       <MessageSquare size={14} aria-hidden="true" />
-      <span className="font-medium tabular-nums">{etat.compte}</span>
+      <span className="font-medium tabular-nums">{etat.compte ? etat.compte : "—"}</span>
       {etat.nouveau && (
         <span className="rounded-full bg-rose-100 px-1.5 text-[10px] font-semibold text-rose-700">{t("fil.nouveau")}</span>
       )}
