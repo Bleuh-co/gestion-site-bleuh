@@ -94,7 +94,12 @@ export interface ResumeFil {
   contexte?: string;
   etat?: string;
   lignes?: { libelle: string; valeur: string }[];
-  liens?: { libelle: string; chemin: string }[];
+  /**
+   * Un chemin de l'app (rouvert dans son cadre par la coquille) OU une adresse
+   * https, ouverte dans un nouvel onglet (« Voir sur la préprod » — écrans §3
+   * du plan ; hub-chanv nettoyerResume).
+   */
+  liens?: ({ libelle: string; chemin: string } | { libelle: string; url: string })[];
 }
 
 export interface OuvertureFil {

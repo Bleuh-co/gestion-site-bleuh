@@ -277,4 +277,15 @@ describe("ouvertureFilPage — CONTRAT v2 §1, ajustable TOUJOURS envoyé pour u
     expect(messageOuvertureFil(o)).toMatchObject({ ajustable: false });
     expect(messageOuvertureFil(o)).toHaveProperty("ajustable");
   });
+
+  it("« Voir sur la préprod » : une adresse https après « Ouvrir la fiche », absente sans préprod (écrans §3)", () => {
+    const url = "https://sitebleuh-dev.example/fr/bleuh-original-quebec";
+    const avec = ouvertureFilPage({ ...PAGE, ajustable: true }, { ...LIBELLES, preprod: { libelle: "Voir sur la préprod", url } });
+    expect(avec.resume?.liens).toEqual([
+      { libelle: "Ouvrir la fiche", chemin: `/pages-atterrissage/${PAGE.id}` },
+      { libelle: "Voir sur la préprod", url },
+    ]);
+    const sans = ouvertureFilPage({ ...PAGE, ajustable: true }, { ...LIBELLES, preprod: { libelle: "Voir sur la préprod", url: null } });
+    expect(sans.resume?.liens).toEqual([{ libelle: "Ouvrir la fiche", chemin: `/pages-atterrissage/${PAGE.id}` }]);
+  });
 });

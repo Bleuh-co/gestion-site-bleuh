@@ -156,6 +156,7 @@ export function FicheAtterrissageClient({ id, role }: { id: string; role: Role }
           zone: { libelle: t("pa.colZone"), valeur: zone(fiche.zones) },
           visibilite: { libelle: t("pa.colVisibilite"), valeur: fiche.visibilite === "privee" ? t("pa.privee") : t("pa.publique") },
           fiche: t("fil.ouvrirFiche"),
+          preprod: { libelle: t("pa.voirPreprod"), url: fiche.urls.preprod },
         }
       ),
       fiche.commentaires.filId

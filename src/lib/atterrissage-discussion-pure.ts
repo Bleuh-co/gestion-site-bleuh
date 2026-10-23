@@ -27,6 +27,8 @@ export interface LibellesDiscussionPage {
   zone: { libelle: string; valeur: string };
   visibilite: { libelle: string; valeur: string };
   fiche: string; // « Ouvrir la fiche »
+  /** « Voir sur la préprod » et l'adresse de la page sur la préprod de bleuh.co (écrans §3 du plan) ; absent sans préprod configurée. */
+  preprod?: { libelle: string; url: string | null };
 }
 
 export function cheminFichePage(id: string): string {
@@ -45,7 +47,7 @@ export function ouvertureFilPage(p: PagePourDiscussion, l: LibellesDiscussionPag
       contexte: `${l.contexte} · bleuh.co/fr/${p.adresse.fr}/`,
       etat: l.etat,
       lignes: [l.dates, l.zone, l.visibilite].filter((x) => x.valeur),
-      liens: [{ libelle: l.fiche, chemin }],
+      liens: [{ libelle: l.fiche, chemin }, ...(l.preprod && l.preprod.url ? [{ libelle: l.preprod.libelle, url: l.preprod.url }] : [])],
     },
   };
 }
