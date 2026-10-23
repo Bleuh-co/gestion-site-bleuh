@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Campaign, CampaignsResponse } from "@/lib/infolettre-types";
 import { summarizeCampaigns, type DayRange } from "@/lib/infolettre-campaigns-summary";
+import { CelluleCommentaires } from "@/components/CelluleCommentaires";
+import { useMajFil } from "@/lib/fils-client";
+import { ETAT_FIL_VIDE } from "@/lib/fils-pure";
+import { BrouillonsSection, discuterCampagne } from "./BrouillonsSection";
 
 type SortKey = "date" | "click";
 type PeriodKey = "30d" | "90d" | "12m" | "year" | "all" | "custom";
@@ -64,7 +68,7 @@ const TYPE_LABEL: Record<string, string> = {
   ab: "A/B",
 };
 
-export function CampaignsPanel() {
+export function CampaignsPanel({ canWrite = false, campagneCiblee = null }: { canWrite?: boolean; campagneCiblee?: string | null }) {
   const [data, setData] = useState<CampaignsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +97,16 @@ export function CampaignsPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // La discussion suit la campagne après l'envoi : la cellule se met à jour sans recharger.
+  useMajFil((filId, compte) =>
+    setData((prev) => {
+      if (!prev?.commentaires) return prev;
+      const entree = Object.entries(prev.commentaires).find(([, e]) => e.filId === filId);
+      if (!entree) return prev;
+      return { ...prev, commentaires: { ...prev.commentaires, [entree[0]]: { ...entree[1], compte, nouveau: false } } };
+    })
+  );
 
   const range: DayRange = useMemo(
     () =>
@@ -123,6 +137,11 @@ export function CampaignsPanel() {
     return rows;
   }, [filtered, sortKey]);
 
+  useEffect(() => {
+    if (!campagneCiblee || !sorted.length) return;
+    document.getElementById(`campagne-${campagneCiblee}`)?.scrollIntoView({ block: "center" });
+  }, [campagneCiblee, sorted.length]);
+
   const kpis: { label: string; value: string; note?: string }[] = [
     { label: "Campagnes envoyées", value: summary ? fmtInt(summary.campaigns) : "—" },
     { label: "Destinataires (total)", value: summary ? fmtInt(summary.totalRecipients) : "—" },
@@ -139,6 +158,9 @@ export function CampaignsPanel() {
 
   return (
     <div>
+      <BrouillonsSection canWrite={canWrite} campagneCiblee={campagneCiblee} />
+
+      <h2 className="text-lg font-bold mb-2">Envoyées</h2>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <p className="text-sm text-chanv-terre/60 max-w-xl">
           Données MailerLite rafraîchies à l&apos;ouverture / à l&apos;actualisation —
@@ -229,12 +251,13 @@ export function CampaignsPanel() {
               >
                 Taux de clic {sortKey === "click" ? "▾" : ""}
               </th>
+              <th className="px-4 py-3 font-semibold whitespace-nowrap">Commentaires</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 && !loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   {data?.campaigns?.length
                     ? "Aucune campagne envoyée sur cette période."
                     : "Aucune campagne envoyée."}
@@ -242,7 +265,11 @@ export function CampaignsPanel() {
               </tr>
             ) : (
               sorted.map((c) => (
-                <tr key={c.id} className="border-b border-black/5 last:border-0 align-top">
+                <tr
+                  key={c.id}
+                  id={`campagne-${c.id}`}
+                  className={`border-b border-black/5 last:border-0 align-top ${campagneCiblee === c.id ? "bg-amber-50" : ""}`}
+                >
                   <td className="px-4 py-3">
                     <div className="font-medium">{c.name || "—"}</div>
                     <div className="text-xs text-chanv-terre/50">
@@ -259,6 +286,19 @@ export function CampaignsPanel() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">{fmtPct(c.openRate)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap font-medium">
                     {fmtPct(c.clickRate)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const etat = data?.commentaires?.[c.id] ?? ETAT_FIL_VIDE;
+                      return (
+                        <CelluleCommentaires
+                          etat={etat}
+                          onOuvrir={() =>
+                            discuterCampagne(c, "Envoyée", { libelle: "Envoyée le", valeur: fmtDate(c.dateSend) }, etat.filId)
+                          }
+                        />
+                      );
+                    })()}
                   </td>
                 </tr>
               ))

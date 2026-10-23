@@ -24,6 +24,7 @@ import type {
   SubscriberStatus,
   Campaign,
 } from "./infolettre-types";
+import { lireCampagneNonEnvoyee, type CampagneNonEnvoyee } from "./campagnes-brouillons-pure";
 
 export const BLEUH_ACCOUNT_ID = "bleuh";
 export const BLEUH_ACCOUNT_LABEL = "Bleuh";
@@ -87,6 +88,17 @@ export interface BleuhMailerLiteClient {
    * une ou plusieurs variantes ([{ email_id, content }]) : on les concatène.
    */
   getCampaignContent(campaignId: string): Promise<string>;
+  /**
+   * Les campagnes pas encore parties (lot L12) : brouillons
+   * (GET /campaigns/draft) et envois programmés (GET /campaigns/outbox).
+   */
+  getUnsentCampaigns(): Promise<CampagneNonEnvoyee[]>;
+  /**
+   * Supprime un BROUILLON (DELETE /campaigns/:id). Relit d'abord la liste
+   * des brouillons : une campagne programmée ou envoyée n'est jamais
+   * supprimée d'ici. « absente » = l'id n'est pas un brouillon.
+   */
+  deleteDraftCampaign(campaignId: string): Promise<"supprimee" | "absente">;
   getMaskedKey(): string;
 }
 
@@ -362,6 +374,52 @@ class ClassicV2Client implements BleuhMailerLiteClient {
     return extractHtmlFromContentResponse(raw);
   }
 
+  private async listByStatus(status: "draft" | "outbox"): Promise<unknown[]> {
+    const PAGE = 100;
+    const MAX_PAGES = 10;
+    const out: unknown[] = [];
+    let offset = 0;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const res = await fetchWithRetry(`${this.baseUrl}/campaigns/${status}?limit=${PAGE}&offset=${offset}`, {
+        headers: this.headers(),
+      });
+      if (!res.ok) throw new Error(`ML Classic campaigns/${status}: ${res.status}`);
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : [];
+      out.push(...list);
+      if (list.length < PAGE) break;
+      offset += list.length;
+    }
+    return out;
+  }
+
+  async getUnsentCampaigns(): Promise<CampagneNonEnvoyee[]> {
+    const [drafts, outbox] = await Promise.all([this.listByStatus("draft"), this.listByStatus("outbox")]);
+    const byId = new Map<string, CampagneNonEnvoyee>();
+    for (const c of outbox) {
+      const m = lireCampagneNonEnvoyee(c, "programmee");
+      if (m && !byId.has(m.id)) byId.set(m.id, m);
+    }
+    for (const c of drafts) {
+      const m = lireCampagneNonEnvoyee(c, "brouillon");
+      if (m && !byId.has(m.id)) byId.set(m.id, m);
+    }
+    return Array.from(byId.values());
+  }
+
+  async deleteDraftCampaign(campaignId: string): Promise<"supprimee" | "absente"> {
+    const drafts = await this.listByStatus("draft");
+    const estBrouillon = drafts.some((c) => String((c as Record<string, unknown>)?.id ?? "") === campaignId);
+    if (!estBrouillon) return "absente";
+    const res = await fetchWithRetry(`${this.baseUrl}/campaigns/${encodeURIComponent(campaignId)}`, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (res.status === 404) return "absente";
+    if (!res.ok) throw new Error(`ML Classic delete campaign: ${res.status}`);
+    return "supprimee";
+  }
+
   private mapSubscriber(s: Record<string, unknown>): Subscriber {
     const fields: Record<string, string | number | null> = {};
     if (Array.isArray(s.fields)) {
@@ -503,6 +561,23 @@ class MockClient implements BleuhMailerLiteClient {
         ? '<a href="#" style="background-color:#282828;color:#fff">Découvrir</a>'
         : ""; // certaines mock sans CTA → diagnostic « CTA absent »
     return `<title>Nouveautés Bleuh #${campaignId}</title><div style="display:none;font-size:0px">Aperçu de l'infolettre Bleuh</div><h1>Bonjour</h1><p>${body}</p><img src="x"><img src="y">${cta}`;
+  }
+
+  private unsent: CampagneNonEnvoyee[] = [
+    { id: "900", name: "Infolettre en préparation", subject: "Nouveautés de novembre", type: "regular", statut: "brouillon", dateCreated: "2026-10-20 09:00:00", dateSend: null },
+    { id: "901", name: "Test", subject: "Test", type: "regular", statut: "brouillon", dateCreated: "2026-10-21 14:00:00", dateSend: null },
+    { id: "902", name: "QFR - Rotation", subject: "Les nouveautés du mois", type: "regular", statut: "programmee", dateCreated: "2026-10-22 10:00:00", dateSend: "2026-10-24 12:00:00" },
+  ];
+
+  async getUnsentCampaigns(): Promise<CampagneNonEnvoyee[]> {
+    return this.unsent.map((c) => ({ ...c }));
+  }
+
+  async deleteDraftCampaign(campaignId: string): Promise<"supprimee" | "absente"> {
+    const i = this.unsent.findIndex((c) => c.id === campaignId && c.statut === "brouillon");
+    if (i < 0) return "absente";
+    this.unsent.splice(i, 1);
+    return "supprimee";
   }
 
   getMaskedKey(): string {

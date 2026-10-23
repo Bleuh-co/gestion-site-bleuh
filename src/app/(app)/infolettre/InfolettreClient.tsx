@@ -27,6 +27,15 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
   const [account, setAccount] = useState<MailerLiteAccount | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("subscribers");
+  // Lien de la discussion d'une campagne (lot L12) : /infolettre?onglet=campagnes&campagne=<id>.
+  const [campagneCiblee, setCampagneCiblee] = useState<string | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("onglet") === "campagnes") {
+      setTab("campaigns");
+      setCampagneCiblee(q.get("campagne"));
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/infolettre/account", { cache: "no-store" })
@@ -131,7 +140,7 @@ export function InfolettreClient({ role }: InfolettreClientProps) {
             </>
           )}
           {tab === "fields" && <FieldsPanel />}
-          {tab === "campaigns" && <CampaignsPanel />}
+          {tab === "campaigns" && <CampaignsPanel canWrite={canWrite} campagneCiblee={campagneCiblee} />}
           {tab === "trends" && <TrendsPanel canWrite={canWrite} />}
           {tab === "snapshots" && <SnapshotsPanel canWrite={canWrite} />}
         </>

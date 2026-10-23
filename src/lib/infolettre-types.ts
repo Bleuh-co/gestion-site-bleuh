@@ -68,6 +68,12 @@ export interface CampaignsResponse {
   // Date de chaque désabonnement ("YYYY-MM-DD HH:MM:SS"), sans identité :
   // l'écran recalcule le taux sur la période choisie sans rappeler l'API.
   unsubscribeDates: string[];
+  /**
+   * La discussion de chaque campagne (lot L12), par id MailerLite : la même
+   * que celle du brouillon, puisque l'id ne change pas à l'envoi. Absent si
+   * la lecture de GANDALF a échoué.
+   */
+  commentaires?: Record<string, { filId: string; compte: number; nouveau: boolean }>;
 }
 
 export interface MLGroup {
