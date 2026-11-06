@@ -47,6 +47,7 @@ export function Sidebar() {
       // future app Maison d'Herbes (MDH). Code/page/routes conservés, dé-commenter pour réactiver.
       // links.push({ label: t("nav.analyseCeo"), icon: "📊", href: "/analyse-ceo", mobileOnly: true });
       links.push({ label: t("nav.acquisition"), icon: "🧭", href: "/acquisition", mobileOnly: true });
+      links.push({ label: t("nav.titresDescriptions"), icon: "🏷️", href: "/titres-descriptions", mobileOnly: true });
       links.push({ label: t("nav.seo"), icon: "🔍", href: "/seo", mobileOnly: true });
       links.push({ label: t("nav.gsc"), icon: "📈", href: "/gsc", mobileOnly: true });
     }

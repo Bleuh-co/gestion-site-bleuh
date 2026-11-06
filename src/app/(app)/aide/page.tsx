@@ -115,6 +115,38 @@ export default async function AidePage() {
           </p>
         </section>
 
+        {/* Titres et descriptions */}
+        <section className="section-card">
+          <h2 className="text-lg font-bold mb-3">🏷️ Titres et descriptions</h2>
+          <p className="mb-3">
+            Ce que Google affiche pour chaque page de bleuh.co : le <strong>titre</strong> (la ligne bleue
+            du résultat) et la <strong>description</strong> (le texte gris dessous), plus l&apos;image qui
+            paraît quand on partage la page. La liste vient du plan du site de bleuh.co : une page
+            ajoutée au site y apparaît toute seule.
+          </p>
+          <ul className="list-disc pl-6 space-y-1 text-sm">
+            <li>
+              Chaque cellule montre ce que la page dit à Google <strong>en ce moment</strong>, lu comme un
+              robot. « Aucune description » en orange : Google choisit alors lui-même un bout de texte de
+              la page.
+            </li>
+            <li>
+              Un champ vide garde le texte écrit dans le site. Vider les trois champs d&apos;une langue
+              retire le réglage.
+            </li>
+            <li>
+              Google lit <code>/fr</code> en version Québec et <code>/en</code> en version Canada : chaque
+              langue a son titre et sa description.
+            </li>
+            <li>
+              bleuh.co prend un changement en moins d&apos;une minute (« Vérifier sur bleuh.co » le
+              confirme). Google le lit à son prochain passage ; pour accélérer, Search Console ›
+              Inspection de l&apos;URL › Demander une indexation.
+            </li>
+            <li>Les fiches produits se règlent dans Produits, section Référencement.</li>
+          </ul>
+        </section>
+
         {/* Produits */}
         <section className="section-card">
           <h2 className="text-lg font-bold mb-3">📦 Produits</h2>
