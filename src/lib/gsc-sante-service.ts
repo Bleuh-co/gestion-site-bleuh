@@ -10,6 +10,7 @@ import {
   headerHasNoindex,
   htmlHasNoindex,
   isGoneStatus,
+  isTransientStatus,
   parseRobotsSitemaps,
   santeWindow,
   siteOrigin,
@@ -43,6 +44,8 @@ const GSC_SANTE = "gsc_sante";
  */
 const USER_AGENT = "MarketingBleuh-VerifGoogle/1.0 (+https://gandalf.chanv.com)";
 const PROBE_TIMEOUT_MS = 15_000;
+/** Attente avant de relire une réponse peut-être passagère (pare-feu, surcharge). */
+const RETRY_DELAY_MS = 2_000;
 /** Trois lectures à la fois : 12 en parallèle font tomber maisondherbes.com en délai. */
 const PROBE_CONCURRENCY = 3;
 /** Budget de relecture des pages : la requête entière doit tenir dans 300 s. */
@@ -105,6 +108,14 @@ async function probeOnce(url: string): Promise<ProbeHop> {
   }
 }
 
+/** Lit une adresse ; une réponse peut-être passagère est relue une fois. */
+async function probeSteady(url: string): Promise<ProbeHop> {
+  const hop = await probeOnce(url);
+  if (!isTransientStatus(hop.status)) return hop;
+  await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+  return probeOnce(url);
+}
+
 /** Suit les redirections saut par saut ; s'arrête sur une boucle. */
 async function probeChain(url: string): Promise<ProbeHop[]> {
   const hops: ProbeHop[] = [];
@@ -112,7 +123,7 @@ async function probeChain(url: string): Promise<ProbeHop[]> {
   let current = url;
   while (hops.length < GSC_SANTE_MAX_HOPS) {
     seen.add(current);
-    const hop = await probeOnce(current);
+    const hop = await probeSteady(current);
     hops.push(hop);
     const redirect = hop.status !== null && hop.status >= 300 && hop.status < 400;
     if (!redirect || !hop.location || seen.has(hop.location)) break;

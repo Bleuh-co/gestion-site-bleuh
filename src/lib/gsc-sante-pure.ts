@@ -161,6 +161,15 @@ export function sitemapsToRecheck(expected: string[], declared: string[]): strin
   return declared.filter((u) => !expected.includes(u));
 }
 
+/**
+ * Réponse peut-être passagère : pare-feu (403/429), serveur (5xx) ou réseau.
+ * Relue une fois avant d'en faire un signal (relevé du 06/11 depuis Cloud Run :
+ * 6 refus 403 isolés sur 1 034 lectures, dont l'accueil de maisondherbes.com).
+ */
+export function isTransientStatus(status: number | null): boolean {
+  return status === null || status === 403 || status === 429 || status >= 500;
+}
+
 /** Un statut qui dit « ce plan n'existe plus », sans ambiguïté. */
 export function isGoneStatus(status: number | null): boolean {
   return status === 404 || status === 410;

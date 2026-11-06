@@ -12,6 +12,7 @@ import {
   headerHasNoindex,
   htmlHasNoindex,
   isNormalizationHop,
+  isTransientStatus,
   parseRobotsSitemaps,
   santeWindow,
   searchConsoleUrl,
@@ -153,6 +154,11 @@ test("classifyChain : ancien site resté en ligne sur un autre hôte de la propr
     "accueil",
     "l'ancien site qui renvoie tout vers l'accueil du site principal"
   );
+});
+
+test("isTransientStatus : pare-feu, surcharge et réseau relus ; 404 et redirections non", () => {
+  for (const s of [null, 403, 429, 500, 503, 520]) assert.ok(isTransientStatus(s), String(s));
+  for (const s of [200, 301, 307, 308, 404, 410]) assert.ok(!isTransientStatus(s), String(s));
 });
 
 test("noindex : balise meta et en-tête X-Robots-Tag", () => {
