@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import { useGandalf } from "@bleuh-co/gandalf-sdk-next/client";
 import { ATTERRISSAGES_MESSAGES } from "./i18n-atterrissages";
 import { CARTES_CLICS_MESSAGES } from "./i18n-cartes-clics";
+import { GSC_SANTE_MESSAGES } from "./i18n-gsc-sante";
 
 export type Lang = "fr" | "en" | "es";
 
@@ -732,6 +733,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
 // Pages d'atterrissage et discussion (lot L10) : rangées dans leur propre fichier.
 for (const l of ["fr", "en", "es"] as const) Object.assign(MESSAGES[l], ATTERRISSAGES_MESSAGES[l]);
 for (const l of ["fr", "en", "es"] as const) Object.assign(MESSAGES[l], CARTES_CLICS_MESSAGES[l]);
+for (const l of ["fr", "en", "es"] as const) Object.assign(MESSAGES[l], GSC_SANTE_MESSAGES[l]);
 
 /** Traduit une clé avec interpolation `{var}` optionnelle. */
 export function translate(

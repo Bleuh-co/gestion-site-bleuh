@@ -19,6 +19,7 @@ import { useLocale, useT } from "@/lib/i18n";
 import { LineChart } from "@/app/(app)/infolettre/charts/LineChart";
 import type { Role } from "@/lib/types";
 import type { GscEntry, GscSitemapInfo, GscTotals } from "@/lib/gsc-pure";
+import { GscSante } from "./GscSante";
 
 /** Teinte de marque (brand-600). Contraste vérifié ≥ 3:1 sur la carte blanche. */
 const OR = "#8A7648";
@@ -241,6 +242,8 @@ export function GscClient({ role }: { role: Role }) {
       </div>
       <p className="text-sm text-chanv-terre/60 mb-6">{t("gsc.subtitle")}</p>
       {syncMsg && <p className="text-sm text-chanv-terre/70 mb-4">{syncMsg}</p>}
+
+      <GscSante canWrite={canWrite} />
 
       {loading && <div className="card p-8 text-center text-chanv-terre/50">{t("gsc.loading")}</div>}
       {error && !loading && (

@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { requireWrite } from "@/lib/auth-server";
 import { recordAudit } from "@/lib/audit";
+import { CRON_HEADER, tokensMatch } from "@/lib/cron-token";
 import { handleError } from "@/lib/products-service";
 import { defaultSyncDates, listDates } from "@/lib/gsc-pure";
 import { syncDates, GscApiError } from "@/lib/gsc-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const CRON_HEADER = "x-cron-token";
-
-/** Comparaison à temps constant (même contrat que /api/infolettre/collect). */
-function tokensMatch(provided: string, expected: string): boolean {
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) {
-    timingSafeEqual(a, a);
-    return false;
-  }
-  return timingSafeEqual(a, b);
-}
 
 /**
  * POST /api/gsc/sync — aspire les données Search Console et les ARCHIVE dans

@@ -20,8 +20,12 @@ import {
 // Authentification : ADC (Application Default Credentials), exactement comme
 // le client GA4 de ceo-analysis-service.ts. Sur Cloud Run, l'identité est le
 // compte de service d'exécution — c'est LUI qui doit être ajouté comme
-// utilisateur (autorisation « Complète » en lecture suffit) dans la propriété
-// Search Console. Aucun fichier de clé, jamais.
+// utilisateur (autorisation « Complète ») dans la propriété Search Console.
+// Aucun fichier de clé, jamais.
+//
+// Portée en écriture depuis le 06/11/2026 : la santé Google
+// (gsc-sante-service.ts) déclare le plan du site et retire les plans morts.
+// Rien d'autre n'écrit chez Google.
 //
 // Propriété visée : env GSC_SITE_URL. Une propriété « Domaine » s'écrit
 // `sc-domain:bleuh.co`, une propriété « Préfixe d'URL »
@@ -30,7 +34,7 @@ import {
 // ─────────────────────────────────────────────────────────────
 
 const API_BASE = "https://searchconsole.googleapis.com/webmasters/v3";
-const SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+const SCOPE = "https://www.googleapis.com/auth/webmasters";
 const DEFAULT_SITE = "sc-domain:bleuh.co";
 
 /** Archive quotidienne GSC — voir l'en-tête de src/lib/gsc-pure.ts. */
@@ -59,7 +63,7 @@ async function accessToken(): Promise<string> {
   return token;
 }
 
-async function gscFetch(path: string, init?: RequestInit): Promise<unknown> {
+export async function gscFetch(path: string, init?: RequestInit): Promise<unknown> {
   const token = await accessToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -83,7 +87,9 @@ async function gscFetch(path: string, init?: RequestInit): Promise<unknown> {
     const sites = res.status === 403 ? await listSites().catch(() => null) : null;
     throw new GscApiError(`Search Console ${res.status} sur ${path} : ${detail}`, res.status, sites);
   }
-  return res.json();
+  // Envoi et retrait d'un plan du site répondent 204, sans corps.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 /** Propriétés GSC accessibles par l'identité courante (diagnostic). */
