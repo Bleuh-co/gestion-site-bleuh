@@ -35,17 +35,13 @@ function shortUrl(url: string, mainHost: string | null): string {
   return host && host !== mainHost ? `${url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}${path}` : path;
 }
 
+/** Lecture et relance de la vérification ; l'affichage est dans GscSanteVue. */
 export function GscSante({ canWrite }: { canWrite: boolean }) {
   const t = useT();
-  const locale = useLocale();
-  const nf = useMemo(() => new Intl.NumberFormat(locale), [locale]);
-
   const [sante, setSante] = useState<GscSanteDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [expanded, setExpanded] = useState<Partial<Record<GscPageKind, boolean>>>({});
-  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +85,40 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
       .finally(() => setRunning(false));
   };
 
+  return (
+    <GscSanteVue
+      sante={sante}
+      loaded={loaded}
+      error={error}
+      running={running}
+      canWrite={canWrite}
+      onRun={run}
+    />
+  );
+}
+
+/** L'encart lui-même, sans réseau : rendu tel quel à partir d'une vérification. */
+export function GscSanteVue({
+  sante,
+  loaded,
+  error,
+  running,
+  canWrite,
+  onRun,
+}: {
+  sante: GscSanteDoc | null;
+  loaded: boolean;
+  error: string | null;
+  running: boolean;
+  canWrite: boolean;
+  onRun: () => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  const nf = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const [expanded, setExpanded] = useState<Partial<Record<GscPageKind, boolean>>>({});
+  const [copied, setCopied] = useState<string | null>(null);
+
   const copy = (url: string) => {
     navigator.clipboard
       ?.writeText(url)
@@ -119,9 +149,10 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
   const mainHost = sante ? bareHost(siteOrigin(sante.siteUrl)) : null;
   const short = (url: string) => shortUrl(url, mainHost);
 
-  const answer = (s: GscPageSignal): string => {
-    if (s.kind === "noindex") return t("gscSante.answer.noindex");
-    const end =
+  /** Où mène l'adresse (une URL, coupable n'importe où) et son état (des mots, jamais coupés). */
+  const answer = (s: GscPageSignal): { target: string | null; note: string } => {
+    if (s.kind === "noindex") return { target: null, note: t("gscSante.answer.noindex") };
+    const note =
       s.finalStatus === null
         ? t("gscSante.answer.noResponse")
         : s.finalStatus === 404 || s.finalStatus === 410
@@ -129,8 +160,18 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
           : s.finalStatus === 200
             ? ""
             : t("gscSante.answer.status", { status: s.finalStatus });
-    if (!s.finalUrl) return end || t("gscSante.answer.served");
-    return `→ ${short(s.finalUrl)}${end ? ` · ${end}` : ""}`;
+    if (!s.finalUrl) return { target: null, note: note || t("gscSante.answer.served") };
+    return { target: short(s.finalUrl), note };
+  };
+  const answerCell = (s: GscPageSignal) => {
+    const { target, note } = answer(s);
+    return (
+      <>
+        {target && <span className="font-mono break-all">→ {target}</span>}
+        {target && note && " · "}
+        {note && <span className="whitespace-nowrap">{note}</span>}
+      </>
+    );
   };
 
   const plan = sante?.plan ?? null;
@@ -153,7 +194,7 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
         {canWrite && (
           <button
             type="button"
-            onClick={run}
+            onClick={onRun}
             disabled={running}
             className="btn btn-secondary ml-auto"
             title={t("gscSante.runHint")}
@@ -245,9 +286,9 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
                           <tr className="text-left border-b border-chanv-fibre">
                             <th className="py-2 pr-3">{t("gscSante.col.page")}</th>
                             <th className="py-2 px-3">{t("gscSante.col.answer")}</th>
-                            <th className="py-2 px-3 text-right">{t("gscSante.col.impressions")}</th>
-                            <th className="py-2 px-3 text-right">{t("gscSante.col.clicks")}</th>
-                            <th className="py-2 px-3">{t("gscSante.col.lastSeen")}</th>
+                            <th className="py-2 px-3 text-right whitespace-nowrap">{t("gscSante.col.impressions")}</th>
+                            <th className="py-2 px-3 text-right whitespace-nowrap">{t("gscSante.col.clicks")}</th>
+                            <th className="py-2 px-3 whitespace-nowrap">{t("gscSante.col.lastSeen")}</th>
                             <th className="py-2 pl-3" />
                           </tr>
                         </thead>
@@ -257,7 +298,7 @@ export function GscSante({ canWrite }: { canWrite: boolean }) {
                               <td className="py-2 pr-3 font-mono text-xs break-all" title={s.url}>
                                 {short(s.url)}
                               </td>
-                              <td className="py-2 px-3 font-mono text-xs break-all">{answer(s)}</td>
+                              <td className="py-2 px-3 text-xs">{answerCell(s)}</td>
                               <td className="py-2 px-3 text-right tabular-nums">{nf.format(s.impressions)}</td>
                               <td className="py-2 px-3 text-right tabular-nums">{nf.format(s.clicks)}</td>
                               <td className="py-2 px-3 whitespace-nowrap">{s.lastSeen ? day(s.lastSeen) : "—"}</td>
