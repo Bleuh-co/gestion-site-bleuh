@@ -13,7 +13,9 @@ import {
   aggregateFrictions,
   aggregateRetailerClicks,
   buildAcquisitionReport,
+  daysBetweenUtc,
   formatFrictionOutcome,
+  lastNDaysUtc,
   type FrictionInput,
   type RetailerClickInput,
 } from "./acquisition-pure.ts";
@@ -177,4 +179,39 @@ test("buildAcquisitionReport : porte les clics vers un détaillant agrégés dan
 test("buildAcquisitionReport : sans retailerClicks (appelant ou test antérieur à ce lot), rend une liste vide plutôt que de planter", () => {
   const report = buildAcquisitionReport({ trafficSources: [], pages: [], frictions: [], days: [] });
   assert.deepEqual(report.retailerClicks, []);
+});
+
+// ─────────────────────────────────────────────────────────────
+// daysBetweenUtc (lot L9, plan publicite-bdion) — la plage libre de l'onglet
+// Chiffres de Studio (« Hier », ou une période libre).
+// ─────────────────────────────────────────────────────────────
+
+test("daysBetweenUtc : les jours UTC entre deux bornes incluses, du plus ancien au plus récent", () => {
+  assert.deepEqual(daysBetweenUtc("2026-11-05", "2026-11-07", new Date("2026-11-10T12:00:00.000Z")), [
+    "2026-11-05",
+    "2026-11-06",
+    "2026-11-07",
+  ]);
+});
+
+test("daysBetweenUtc : « Hier » (une seule borne) rend un seul jour", () => {
+  assert.deepEqual(daysBetweenUtc("2026-11-06", "2026-11-06", new Date("2026-11-07T12:00:00.000Z")), ["2026-11-06"]);
+});
+
+test("daysBetweenUtc : même résultat que lastNDaysUtc pour une plage équivalente", () => {
+  const maintenant = new Date("2026-11-10T12:00:00.000Z");
+  const parPlage = daysBetweenUtc("2026-11-04", "2026-11-10", maintenant);
+  assert.deepEqual(parPlage, lastNDaysUtc(7, maintenant));
+});
+
+test("daysBetweenUtc : refuse un format invalide, l'ordre inversé, ou une fin dans le futur", () => {
+  const maintenant = new Date("2026-11-10T12:00:00.000Z");
+  assert.equal(daysBetweenUtc("5 nov", "2026-11-07", maintenant), null);
+  assert.equal(daysBetweenUtc("2026-11-07", "2026-11-05", maintenant), null); // du > au
+  assert.equal(daysBetweenUtc("2026-11-05", "2026-11-11", maintenant), null); // au dans le futur
+});
+
+test("daysBetweenUtc : refuse une plage trop longue, jamais tronquée en silence", () => {
+  const maintenant = new Date("2028-01-01T12:00:00.000Z");
+  assert.equal(daysBetweenUtc("2026-01-01", "2027-06-01", maintenant), null);
 });

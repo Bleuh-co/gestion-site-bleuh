@@ -381,6 +381,30 @@ export function lastNDaysUtc(days: number, now: Date = new Date()): string[] {
   return out;
 }
 
+/** Au-delà, une plage libre n'est plus une sélection mais une erreur (ou un abus) — même ordre de grandeur que marketing-mdh (`PLAGE_MAX_JOURS`). */
+export const PLAGE_MAX_JOURS = 366;
+
+/**
+ * Jours UTC (`YYYY-MM-DD`) entre deux bornes incluses, du plus ancien au plus
+ * récent (lot L9, plan publicite-bdion) : pour l'onglet Chiffres de Studio
+ * (« Hier », ou une période libre), en plus des raccourcis `period` existants
+ * (7/30/90). `null` si les bornes sont invalides, dans le désordre, dans le
+ * futur, ou si la plage dépasse `PLAGE_MAX_JOURS` — jamais une plage
+ * silencieusement tronquée.
+ */
+export function daysBetweenUtc(du: string, au: string, now: Date = new Date()): string[] | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(du) || !/^\d{4}-\d{2}-\d{2}$/.test(au)) return null;
+  const debut = Date.parse(`${du}T00:00:00.000Z`);
+  const fin = Date.parse(`${au}T00:00:00.000Z`);
+  const aujourdhui = now.toISOString().slice(0, 10);
+  if (!Number.isFinite(debut) || !Number.isFinite(fin) || du > au || au > aujourdhui) return null;
+  const jours = Math.round((fin - debut) / 86400000) + 1;
+  if (jours > PLAGE_MAX_JOURS) return null;
+  const out: string[] = [];
+  for (let i = 0; i < jours; i++) out.push(new Date(debut + i * 86400000).toISOString().slice(0, 10));
+  return out;
+}
+
 export function buildAcquisitionReport(input: {
   trafficSources: TrafficSourceInput[];
   pages: PageInput[];

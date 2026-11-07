@@ -16,6 +16,7 @@ import "server-only";
 import { adminDb } from "@/lib/firebase-admin";
 import {
   buildAcquisitionReport,
+  daysBetweenUtc,
   lastNDaysUtc,
   type AcquisitionReport,
   type FrictionInput,
@@ -34,11 +35,27 @@ export function parsePeriod(raw: unknown): AcquisitionPeriod {
 
 export interface AcquisitionResult extends AcquisitionReport {
   generatedAt: string;
-  period: AcquisitionPeriod;
+  /** `period` fixe (7/30/90), ou le nombre de jours d'une plage libre (lot L9, `buildAcquisitionRange`). */
+  period: number;
 }
 
 export async function buildAcquisition(period: AcquisitionPeriod): Promise<AcquisitionResult> {
-  const days = lastNDaysUtc(period);
+  return buildAcquisitionPourJours(lastNDaysUtc(period), period);
+}
+
+/**
+ * Même rapport, sur une plage libre `du`–`au` (jours UTC inclus) plutôt qu'un
+ * raccourci `period` — lot L9 (plan publicite-bdion) : l'onglet Chiffres de
+ * Studio propose « Hier » et une période libre, que `ACQUISITION_PERIODS` ne
+ * couvre pas. `null` si la plage est invalide (voir `daysBetweenUtc`).
+ */
+export async function buildAcquisitionRange(du: string, au: string, maintenant: Date = new Date()): Promise<AcquisitionResult | null> {
+  const days = daysBetweenUtc(du, au, maintenant);
+  if (!days) return null;
+  return buildAcquisitionPourJours(days, days.length);
+}
+
+async function buildAcquisitionPourJours(days: string[], periodLabel: number): Promise<AcquisitionResult> {
   const col = adminDb().collection("site_traffic");
 
   let sources: TrafficSourceInput[] = [];
@@ -113,6 +130,6 @@ export async function buildAcquisition(period: AcquisitionPeriod): Promise<Acqui
   return {
     ...buildAcquisitionReport({ trafficSources: sources, pages, frictions, retailerClicks, days }),
     generatedAt: new Date().toISOString(),
-    period,
+    period: periodLabel,
   };
 }

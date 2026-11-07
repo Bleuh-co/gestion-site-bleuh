@@ -15,7 +15,7 @@
  * multi-mesures sont des TABLEAUX.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useT } from "@/lib/i18n";
 import { LineChart } from "@/app/(app)/infolettre/charts/LineChart";
 import { BarChart } from "@/app/(app)/infolettre/charts/BarChart";
@@ -125,6 +125,30 @@ export function AcquisitionClient() {
   const [data, setData] = useState<AcquisitionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Lot L9 (plan publicite-bdion) : « s'ouvre sur sa source » — un chiffre de
+   * Studio › Publicité ouvre Acquisition déjà réglée sur sa période
+   * (`?period=`) et pointe vers sa campagne (`?campaign=`, la valeur exacte
+   * observée, ex. « blh-r1-wildberry-nouveau-ontario ») en surlignant ses
+   * lignes dans « Clics vers un détaillant » — au plus simple, cet écran
+   * n'ayant pas de filtre par campagne à poser depuis l'adresse.
+   */
+  const [campagneCible, setCampagneCible] = useState<string | null>(null);
+  const retailerClicksRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const p = Number(sp.get("period"));
+    if ((PERIODS as readonly number[]).includes(p)) setPeriod(p as Period);
+    const campagne = sp.get("campaign");
+    if (campagne) setCampagneCible(campagne.trim().toLowerCase());
+  }, []);
+
+  useEffect(() => {
+    if (campagneCible && data) retailerClicksRef.current?.scrollIntoView({ block: "start" });
+    // Un seul défilement, à la première réponse qui porte la campagne visée.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campagneCible, Boolean(data)]);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,7 +397,7 @@ export function AcquisitionClient() {
             vérifier qu'un clic d'essai sur CHAQUE chemin arrive bien avec
             son code.
           */}
-          <section className="card p-4 mb-6">
+          <section className="card p-4 mb-6" ref={retailerClicksRef}>
             <h2 className="text-base font-semibold mb-1 m-0">{t("acq.retailerClicks.title")}</h2>
             <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.retailerClicks.help")}</p>
             <div className="table-scroll">
@@ -389,18 +413,29 @@ export function AcquisitionClient() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.retailerClicks.map((r) => (
-                    <tr key={r.id} className="border-b border-chanv-fibre/60 last:border-0">
-                      <td className="py-2 pr-3">{t(`acq.retailerClicks.chemin.${r.chemin}`)}</td>
-                      <td className="py-2 px-3">
-                        {r.zone === "qc" || r.zone === "on" ? t(`acq.retailerClicks.zone.${r.zone}`) : r.zone}
-                      </td>
-                      <td className="py-2 px-3 font-mono text-xs">{r.campaign}</td>
-                      <td className="py-2 px-3 font-mono text-xs">{r.creation}</td>
-                      <td className="py-2 px-3">{r.product}</td>
-                      <td className="py-2 pl-3 text-right tabular-nums">{nf.format(r.clicks)}</td>
-                    </tr>
-                  ))}
+                  {data.retailerClicks.map((r) => {
+                    // Même convention de préfixe que le générateur de liens de Studio
+                    // (lib/pub-liens-pure.js#slugifier) : un code couvre toute valeur
+                    // avec ou sans thème (« blh-r1 » couvre « blh-r1-wildberry… »).
+                    const surligne = Boolean(
+                      campagneCible && (r.campaign === campagneCible || r.campaign.startsWith(`${campagneCible}-`))
+                    );
+                    return (
+                      <tr
+                        key={r.id}
+                        className={`border-b border-chanv-fibre/60 last:border-0 ${surligne ? "bg-chanv-fibre" : ""}`}
+                      >
+                        <td className="py-2 pr-3">{t(`acq.retailerClicks.chemin.${r.chemin}`)}</td>
+                        <td className="py-2 px-3">
+                          {r.zone === "qc" || r.zone === "on" ? t(`acq.retailerClicks.zone.${r.zone}`) : r.zone}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-xs">{r.campaign}</td>
+                        <td className="py-2 px-3 font-mono text-xs">{r.creation}</td>
+                        <td className="py-2 px-3">{r.product}</td>
+                        <td className="py-2 pl-3 text-right tabular-nums">{nf.format(r.clicks)}</td>
+                      </tr>
+                    );
+                  })}
                   {data.retailerClicks.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-6 text-center text-chanv-terre/40">
