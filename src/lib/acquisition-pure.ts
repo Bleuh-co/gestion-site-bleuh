@@ -227,6 +227,95 @@ function retailerClicksOf(events: unknown): number {
   return num((events as Record<string, unknown>).select_retailer);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Lot L5 (plan publicite-bdion, 06-07/11/2026) — clics vers un détaillant,
+// par chemin, zone, campagne, création et produit.
+// ─────────────────────────────────────────────────────────────
+// Écrits par site-bleuh (`src/app/api/track/route.ts`, sous-collection
+// `retailer_clicks` de chaque jour) : UNE ligne par combinaison chemin ×
+// zone × campagne × création × produit, incrémentée à chaque clic d'essai.
+// Duplication délibérée du vocabulaire des cinq chemins avec site-bleuh
+// (`lib/traffic-pure.ts`) — mêmes raisons que le reste de ce fichier : deux
+// dépôts séparés, aucun paquet partagé.
+
+const RETAILER_CLICK_PATHS = [
+  "fiche_produit",
+  "localisateur",
+  "commander_en_ligne",
+  "pied_de_page",
+  "wildberry",
+] as const;
+const RETAILER_CLICK_PATH_SET: ReadonlySet<string> = new Set(RETAILER_CLICK_PATHS);
+
+/** Un chemin hors convention (futur, ou mal écrit) retombe sur « autre ». */
+function retailerClickPathOf(v: unknown): string {
+  return typeof v === "string" && RETAILER_CLICK_PATH_SET.has(v) ? v : "autre";
+}
+
+function retailerClickZoneOf(v: unknown): string {
+  return v === "qc" || v === "on" ? v : "—";
+}
+
+export interface RetailerClickInput {
+  /** Identifiant du document (chemin×zone×campagne×création×produit) — sert à recoller les jours. */
+  id: string;
+  chemin?: unknown;
+  zone?: unknown;
+  utmCampaign?: unknown;
+  utmContent?: unknown;
+  productId?: unknown;
+  productName?: unknown;
+  count?: unknown;
+  /** Jour UTC (`YYYY-MM-DD`) du document d'où provient cette ligne. */
+  date?: unknown;
+}
+
+export interface RetailerClickRow {
+  id: string;
+  chemin: string;
+  zone: string;
+  /** Code de campagne tel qu'il arrive dans l'URL (utm_campaign), ex. blh-r1-wildberry-nouveau-ontario. */
+  campaign: string;
+  /** La « création » du lien suivi (utm_content). */
+  creation: string;
+  product: string;
+  clicks: number;
+  /** Dernier jour (`YYYY-MM-DD`) où ce clic a été vu, sur la période demandée. */
+  lastDay: string;
+}
+
+/**
+ * Agrège les clics vers un détaillant par SIGNATURE (même identifiant de
+ * document = même combinaison chemin/zone/campagne/création/produit) à
+ * travers toute la période — même patron que `aggregateFrictions` ci-dessus,
+ * pour la même raison : un document par jour ET par signature, recollés ici.
+ */
+export function aggregateRetailerClicks(rows: RetailerClickInput[]): RetailerClickRow[] {
+  const byId = new Map<string, RetailerClickRow>();
+  for (const r of rows) {
+    if (!r.id) continue; // sécurité : sans identifiant, rien à recoller entre les jours
+    const clicks = num(r.count);
+    const day = typeof r.date === "string" ? r.date : "";
+    const existing = byId.get(r.id);
+    if (existing) {
+      existing.clicks += clicks;
+      if (day > existing.lastDay) existing.lastDay = day;
+    } else {
+      byId.set(r.id, {
+        id: r.id,
+        chemin: retailerClickPathOf(r.chemin),
+        zone: retailerClickZoneOf(r.zone),
+        campaign: cleanUtmValue(r.utmCampaign) ?? "—",
+        creation: cleanUtmValue(r.utmContent) ?? "—",
+        product: cleanUtmValue(r.productName) ?? "—",
+        clicks,
+        lastDay: day,
+      });
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.clicks - a.clicks);
+}
+
 export interface ChannelRow {
   channel: Channel;
   sessions: number;
@@ -267,6 +356,8 @@ export interface AcquisitionReport {
   campaigns: CampaignRow[];
   pages: PageRow[];
   frictions: FrictionRow[];
+  /** Lot L5 (plan publicite-bdion) : les cinq chemins vers un détaillant, détaillés. */
+  retailerClicks: RetailerClickRow[];
   series: DayPoint[];
   totals: {
     sessions: number;
@@ -294,9 +385,15 @@ export function buildAcquisitionReport(input: {
   trafficSources: TrafficSourceInput[];
   pages: PageInput[];
   frictions: FrictionInput[];
+  /**
+   * Lot L5 (plan publicite-bdion) : optionnel pour ne pas casser un appelant
+   * antérieur à ce lot (ou un test qui ignore cette dimension) — absent, il
+   * rend simplement une liste vide, jamais une erreur.
+   */
+  retailerClicks?: RetailerClickInput[];
   days: string[];
 }): AcquisitionReport {
-  const { trafficSources, pages, frictions, days } = input;
+  const { trafficSources, pages, frictions, days, retailerClicks = [] } = input;
 
   const channels = new Map<Channel, ChannelRow>();
   const campaigns = new Map<string, CampaignRow>();
@@ -396,6 +493,7 @@ export function buildAcquisitionReport(input: {
     ),
     pages: pageRows,
     frictions: aggregateFrictions(frictions),
+    retailerClicks: aggregateRetailerClicks(retailerClicks),
     series: days.map((d) => byDay.get(d) as DayPoint),
     totals: {
       sessions: totalSessions,

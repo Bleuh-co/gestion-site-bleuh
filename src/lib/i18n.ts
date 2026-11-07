@@ -124,6 +124,24 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.frictions.type.clic_mort": "Clic sans effet",
     "acq.frictions.type.autres": "Autres (plafond quotidien atteint)",
 
+    // Lot L5 (plan publicite-bdion, 06-07/11/2026) — clics vers un détaillant,
+    // par chemin, zone, campagne, création et produit.
+    "acq.retailerClicks.title": "Clics vers un détaillant, par campagne",
+    "acq.retailerClicks.help":
+      "Les cinq chemins qui mènent à un détaillant (fiche produit, localisateur, « Commandez en ligne », pied de page, page Wildberry), avec la campagne et la création qui les ont amenés.",
+    "acq.retailerClicks.col.chemin": "Chemin",
+    "acq.retailerClicks.col.zone": "Zone",
+    "acq.retailerClicks.col.creation": "Création",
+    "acq.retailerClicks.col.product": "Produit",
+    "acq.retailerClicks.chemin.fiche_produit": "Fiche produit",
+    "acq.retailerClicks.chemin.localisateur": "Localisateur",
+    "acq.retailerClicks.chemin.commander_en_ligne": "Commandez en ligne",
+    "acq.retailerClicks.chemin.pied_de_page": "Pied de page",
+    "acq.retailerClicks.chemin.wildberry": "Page Wildberry",
+    "acq.retailerClicks.chemin.autre": "Autre",
+    "acq.retailerClicks.zone.qc": "Québec",
+    "acq.retailerClicks.zone.on": "Ontario",
+
     "gsc.title": "Performance Google",
     "gsc.subtitle":
       "Vraies données Google Search Console : comment le site apparaît et clique dans la recherche Google. Archivées chaque nuit — historique illimité.",
@@ -367,6 +385,24 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.frictions.type.clic_mort": "Click with no effect",
     "acq.frictions.type.autres": "Other (daily cap reached)",
 
+    // Lot L5 (plan publicite-bdion) — clicks to a retailer, by path, zone,
+    // campaign, creative and product.
+    "acq.retailerClicks.title": "Clicks to a retailer, by campaign",
+    "acq.retailerClicks.help":
+      "The five paths that lead to a retailer (product page, store locator, \"Order online\", footer, Wildberry page), with the campaign and creative that drove them.",
+    "acq.retailerClicks.col.chemin": "Path",
+    "acq.retailerClicks.col.zone": "Zone",
+    "acq.retailerClicks.col.creation": "Creative",
+    "acq.retailerClicks.col.product": "Product",
+    "acq.retailerClicks.chemin.fiche_produit": "Product page",
+    "acq.retailerClicks.chemin.localisateur": "Store locator",
+    "acq.retailerClicks.chemin.commander_en_ligne": "Order online",
+    "acq.retailerClicks.chemin.pied_de_page": "Footer",
+    "acq.retailerClicks.chemin.wildberry": "Wildberry page",
+    "acq.retailerClicks.chemin.autre": "Other",
+    "acq.retailerClicks.zone.qc": "Quebec",
+    "acq.retailerClicks.zone.on": "Ontario",
+
     "gsc.title": "Google Performance",
     "gsc.subtitle":
       "Real Google Search Console data: how the site shows up and gets clicked in Google Search. Archived nightly — unlimited history.",
@@ -595,6 +631,24 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     "acq.frictions.type.clic_rageur": "Clics repetidos en el mismo lugar",
     "acq.frictions.type.clic_mort": "Clic sin efecto",
     "acq.frictions.type.autres": "Otros (límite diario alcanzado)",
+
+    // Lote L5 (plan publicite-bdion) — clics hacia un distribuidor, por
+    // camino, zona, campaña, creación y producto.
+    "acq.retailerClicks.title": "Clics hacia un distribuidor, por campaña",
+    "acq.retailerClicks.help":
+      "Los cinco caminos hacia un distribuidor (ficha de producto, buscador de tiendas, «Pedir en línea», pie de página, página Wildberry), con la campaña y la creación que los generaron.",
+    "acq.retailerClicks.col.chemin": "Camino",
+    "acq.retailerClicks.col.zone": "Zona",
+    "acq.retailerClicks.col.creation": "Creación",
+    "acq.retailerClicks.col.product": "Producto",
+    "acq.retailerClicks.chemin.fiche_produit": "Ficha de producto",
+    "acq.retailerClicks.chemin.localisateur": "Buscador de tiendas",
+    "acq.retailerClicks.chemin.commander_en_ligne": "Pedir en línea",
+    "acq.retailerClicks.chemin.pied_de_page": "Pie de página",
+    "acq.retailerClicks.chemin.wildberry": "Página Wildberry",
+    "acq.retailerClicks.chemin.autre": "Otro",
+    "acq.retailerClicks.zone.qc": "Quebec",
+    "acq.retailerClicks.zone.on": "Ontario",
 
     "gsc.title": "Rendimiento Google",
     "gsc.subtitle":

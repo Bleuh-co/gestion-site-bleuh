@@ -20,6 +20,7 @@ import {
   type AcquisitionReport,
   type FrictionInput,
   type PageInput,
+  type RetailerClickInput,
   type TrafficSourceInput,
 } from "@/lib/acquisition-pure";
 
@@ -43,6 +44,7 @@ export async function buildAcquisition(period: AcquisitionPeriod): Promise<Acqui
   let sources: TrafficSourceInput[] = [];
   let pages: PageInput[] = [];
   let frictions: FrictionInput[] = [];
+  let retailerClicks: RetailerClickInput[] = [];
 
   try {
     // Lecture par identifiant connu, jamais par `where` — même parti pris que
@@ -52,10 +54,12 @@ export async function buildAcquisition(period: AcquisitionPeriod): Promise<Acqui
     const perDay = await Promise.all(
       days.map(async (date) => {
         const dayRef = col.doc(`day_${date}`);
-        const [sourcesSnap, pagesSnap, frictionsSnap] = await Promise.all([
+        const [sourcesSnap, pagesSnap, frictionsSnap, retailerClicksSnap] = await Promise.all([
           dayRef.collection("sources").get(),
           dayRef.collection("pages").get(),
           dayRef.collection("frictions").get(),
+          // Lot L5 (plan publicite-bdion) : les cinq chemins vers un détaillant.
+          dayRef.collection("retailer_clicks").get(),
         ]);
         return {
           sources: sourcesSnap.docs.map(
@@ -68,12 +72,18 @@ export async function buildAcquisition(period: AcquisitionPeriod): Promise<Acqui
           frictions: frictionsSnap.docs.map(
             (d) => ({ id: d.id, ...(d.data() as object), date }) as FrictionInput
           ),
+          // Même principe : l'identifiant du document EST la combinaison
+          // chemin×zone×campagne×création×produit (site-bleuh, retailerClickDocId).
+          retailerClicks: retailerClicksSnap.docs.map(
+            (d) => ({ id: d.id, ...(d.data() as object), date }) as RetailerClickInput
+          ),
         };
       })
     );
 
     sources = perDay.flatMap((d) => d.sources);
     frictions = perDay.flatMap((d) => d.frictions);
+    retailerClicks = perDay.flatMap((d) => d.retailerClicks);
 
     // Un même chemin a un document PAR JOUR : on les recolle par chemin.
     const byPath = new Map<string, { path: string; views: number; engagedViews: number; engagementMs: number }>();
@@ -101,7 +111,7 @@ export async function buildAcquisition(period: AcquisitionPeriod): Promise<Acqui
   }
 
   return {
-    ...buildAcquisitionReport({ trafficSources: sources, pages, frictions, days }),
+    ...buildAcquisitionReport({ trafficSources: sources, pages, frictions, retailerClicks, days }),
     generatedAt: new Date().toISOString(),
     period,
   };

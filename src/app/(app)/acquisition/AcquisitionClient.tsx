@@ -69,6 +69,17 @@ interface FrictionRow {
   count: number;
   lastDay: string;
 }
+/** Lot L5 (plan publicite-bdion) : un des cinq chemins vers un détaillant. */
+interface RetailerClickRow {
+  id: string;
+  chemin: string;
+  zone: string;
+  campaign: string;
+  creation: string;
+  product: string;
+  clicks: number;
+  lastDay: string;
+}
 interface AcquisitionResult {
   generatedAt: string;
   period: Period;
@@ -76,6 +87,7 @@ interface AcquisitionResult {
   campaigns: CampaignRow[];
   pages: PageRow[];
   frictions: FrictionRow[];
+  retailerClicks: RetailerClickRow[];
   series: DayPoint[];
   totals: {
     sessions: number;
@@ -343,6 +355,56 @@ export function AcquisitionClient() {
                     <tr>
                       <td colSpan={5} className="py-6 text-center text-chanv-terre/40">
                         {data.trafficPending ? t("acq.trafficPending.short") : t("chart.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/*
+            Lot L5 (plan publicite-bdion) : les cinq chemins vers un
+            détaillant (fiche produit, localisateur, « Commandez en ligne »,
+            pied de page, Wildberry), chacun avec son produit, sa zone, sa
+            campagne et sa création. Le tableau « Détail par campagne »
+            ci-dessus reste la vue globale (sessions + clics, par
+            source/support/campagne) ; celui-ci est la vue ciblée pour
+            vérifier qu'un clic d'essai sur CHAQUE chemin arrive bien avec
+            son code.
+          */}
+          <section className="card p-4 mb-6">
+            <h2 className="text-base font-semibold mb-1 m-0">{t("acq.retailerClicks.title")}</h2>
+            <p className="text-xs text-chanv-terre/60 mb-3 m-0">{t("acq.retailerClicks.help")}</p>
+            <div className="table-scroll">
+              <table className="table-wide text-sm">
+                <thead>
+                  <tr className="text-left border-b border-chanv-fibre">
+                    <th className="py-2 pr-3">{t("acq.retailerClicks.col.chemin")}</th>
+                    <th className="py-2 px-3">{t("acq.retailerClicks.col.zone")}</th>
+                    <th className="py-2 px-3">{t("acq.col.campaign")}</th>
+                    <th className="py-2 px-3">{t("acq.retailerClicks.col.creation")}</th>
+                    <th className="py-2 px-3">{t("acq.retailerClicks.col.product")}</th>
+                    <th className="py-2 pl-3 text-right">{t("acq.col.retailerClicks")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.retailerClicks.map((r) => (
+                    <tr key={r.id} className="border-b border-chanv-fibre/60 last:border-0">
+                      <td className="py-2 pr-3">{t(`acq.retailerClicks.chemin.${r.chemin}`)}</td>
+                      <td className="py-2 px-3">
+                        {r.zone === "qc" || r.zone === "on" ? t(`acq.retailerClicks.zone.${r.zone}`) : r.zone}
+                      </td>
+                      <td className="py-2 px-3 font-mono text-xs">{r.campaign}</td>
+                      <td className="py-2 px-3 font-mono text-xs">{r.creation}</td>
+                      <td className="py-2 px-3">{r.product}</td>
+                      <td className="py-2 pl-3 text-right tabular-nums">{nf.format(r.clicks)}</td>
+                    </tr>
+                  ))}
+                  {data.retailerClicks.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-chanv-terre/40">
+                        {t("chart.empty")}
                       </td>
                     </tr>
                   )}
