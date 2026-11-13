@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { Product, ProductFormInput, Role } from "@/lib/types";
 import { ProductForm } from "../ProductForm";
 import { ProductPreview } from "../ProductPreview";
+import { EspagnolSection } from "./EspagnolSection";
 import { PROVINCE_LABELS, STATUS_LABELS, STRAIN_LABELS, statusBadgeClass } from "../constants";
 
 interface ProduitDetailClientProps {
@@ -262,6 +263,9 @@ export function ProduitDetailClient({ id, role }: ProduitDetailClientProps) {
           </div>
         </div>
       </div>
+
+      {/* Troisième langue de bleuh.co : enregistrée à part de la fiche. */}
+      <EspagnolSection id={id} canWrite={canWrite} version={product.updatedAt ?? ""} />
 
       {previewing && <ProductPreview product={product} onClose={() => setPreviewing(false)} />}
     </main>

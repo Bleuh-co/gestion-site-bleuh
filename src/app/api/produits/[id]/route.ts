@@ -9,6 +9,7 @@ import {
   validateProductInput,
   ValidationError,
 } from "@/lib/products-service";
+import { supprimerEspagnol } from "@/lib/products-es-service";
 import type { Product } from "@/lib/types";
 
 // GET /api/produits/[id] — Détail produit
@@ -105,6 +106,9 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     }
     const product = docToProduct(doc);
     await ref.delete();
+    // Sa section espagnole (collection à part) part avec lui ; un échec ici ne
+    // doit pas faire croire que le produit n'a pas été supprimé.
+    await supprimerEspagnol(id).catch((e) => console.error("Suppression de la section espagnole :", e));
 
     await recordAudit(session, "product.delete", `products/${id}`, {
       name: product.name,
